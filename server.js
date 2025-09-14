@@ -18,7 +18,6 @@ if (!OPENAI_API_KEY) {
   console.log("✅ OPENAI_API_KEY is set");
 }
 
-// Helpers
 async function readJSON(file, fallback) {
   try {
     const raw = await fs.readFile(file, 'utf8');
@@ -54,7 +53,7 @@ app.post('/api/chat', async (req, res) => {
     const messages = [
       {
         role: "system",
-        content: "You are a caring mental health companion. Remember the user’s past feelings and continue conversations naturally. If a memory is marked as '(faded memory)', treat it as something the user mentioned long ago, not fresh."
+        content: "You are a caring mental health companion. Remember the user’s past feelings and continue conversations naturally. If a memory is marked as '(faded memory)', treat it as something the user mentioned long ago."
       },
       ...decayed.flatMap(m => [
         { role: "user", content: m.user },
@@ -96,7 +95,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// === Log mood (separate by user) ===
+// === Mood logging (user specific) ===
 app.post('/api/mood', async (req, res) => {
   const { mood, language, userId } = req.body;
   try {
@@ -123,7 +122,7 @@ app.post('/api/mood', async (req, res) => {
   }
 });
 
-// === View moods (only this user) ===
+// === Mood list (only this user) ===
 app.get('/api/moods', async (req, res) => {
   try {
     const userId = req.query.userId;
@@ -133,6 +132,55 @@ app.get('/api/moods', async (req, res) => {
   } catch (error) {
     console.error('View moods error:', error);
     res.status(500).json({ moods: [] });
+  }
+});
+
+// === Voice mood detection ===
+app.post('/api/mood-voice', async (req, res) => {
+  const { transcript, userId } = req.body;
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a mood detector. Always reply with ONLY ONE word from this list:
+happy, sad, angry, anxious, calm, stressed, grateful, inspired, neutral.`
+          },
+          { role: 'user', content: transcript }
+        ],
+        max_tokens: 5,
+        temperature: 0
+      })
+    });
+
+    const data = await response.json();
+    let detectedMood = (data.choices?.[0]?.message?.content || "neutral").trim().toLowerCase();
+    detectedMood = detectedMood.split(/\s+/)[0];
+
+    const allowed = ["happy","sad","angry","anxious","calm","stressed","grateful","inspired","neutral"];
+    if (!allowed.includes(detectedMood)) detectedMood = "neutral";
+
+    const moods = await readJSON('moods.json', []);
+    moods.push({
+      userId,
+      mood: detectedMood,
+      language: 'voice',
+      transcript,
+      timestamp: new Date().toISOString()
+    });
+    await writeJSON('moods.json', moods);
+
+    res.json({ success: true, mood: detectedMood });
+  } catch (error) {
+    console.error('Echo Journal error:', error);
+    res.status(500).json({ success: false, mood: "error" });
   }
 });
 
