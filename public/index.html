@@ -69,17 +69,80 @@ updateLanguage();
 
 function appendMessage(text,type='bot'){const div=document.createElement('div');div.className=`message ${type}`;div.innerHTML=text;chatBox.appendChild(div);chatBox.scrollTop=chatBox.scrollHeight;}
 
-sendMessageBtn.addEventListener('click',async()=>{const msg=userInput.value.trim();if(!msg)return;appendMessage(msg,'user');userInput.value='';try{const res=await fetch('https://mental-health-app-zoi9.onrender.com/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,language:currentLanguage})});const data=await res.json();appendMessage(data.reply,'bot');}catch{appendMessage("⚠️ AI is offline",'bot');}});
+sendMessageBtn.addEventListener('click',async()=>{
+  const msg=userInput.value.trim();if(!msg)return;
+  appendMessage(msg,'user');userInput.value='';
+  try{
+    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,language:currentLanguage})});
+    const data=await res.json();
+    appendMessage(data.reply,'bot');
+  }catch(err){
+    console.error("Chat fetch error:",err);
+    appendMessage("⚠️ AI is offline",'bot');
+  }
+});
 
-logMoodBtn.addEventListener('click',async()=>{const mood=moodInput.value.trim();if(!mood)return;try{const res=await fetch('https://mental-health-app-zoi9.onrender.com/api/mood',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mood,language:currentLanguage})});const data=await res.json();const emoji=moodEmojis[mood.toLowerCase()]||moodEmojis.default;appendMessage(`Mood logged: ${emoji} ${mood} — ${data.heartbeat}`,'bot');moodInput.value='';}catch{appendMessage("⚠️ Could not log mood",'bot');}});
+logMoodBtn.addEventListener('click',async()=>{
+  const mood=moodInput.value.trim();if(!mood)return;
+  try{
+    const res=await fetch('/api/mood',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mood,language:currentLanguage})});
+    const data=await res.json();
+    const emoji=moodEmojis[mood.toLowerCase()]||moodEmojis.default;
+    appendMessage(`Mood logged: ${emoji} ${mood} — ${data.heartbeat}`,'bot');
+    moodInput.value='';
+  }catch(err){
+    console.error("Mood fetch error:",err);
+    appendMessage("⚠️ Could not log mood",'bot');
+  }
+});
 
-mindfulnessBtn.addEventListener('click',()=>{ /* (unchanged) */ });
+oracleBtn.addEventListener('click',async()=>{
+  try{
+    const res=await fetch('/api/oracle');
+    const data=await res.json();
+    appendMessage(data.message,'bot');
+  }catch(err){
+    console.error("Oracle fetch error:",err);
+    appendMessage("⚠️ Oracle unavailable",'bot');
+  }
+});
 
-oracleBtn.addEventListener('click',async()=>{try{const res=await fetch('https://mental-health-app-zoi9.onrender.com/api/oracle');const data=await res.json();appendMessage(data.message,'bot');}catch{appendMessage("⚠️ Oracle unavailable",'bot');}});
+voiceMoodBtn.addEventListener('click',async()=>{
+  if(!navigator.mediaDevices || !window.SpeechRecognition && !window.webkitSpeechRecognition){
+    appendMessage("⚠️ Browser does not support voice input",'bot'); return;
+  }
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const recognition=new SpeechRecognition();
+  recognition.lang=currentLanguage==='en'?'en-US':'bg-BG';
+  recognition.interimResults=false;
+  recognition.maxAlternatives=1;
+  appendMessage("🎤 Listening... Speak now.","bot");
+  recognition.start();
+  recognition.onresult=async(e)=>{
+    const transcript=e.results[0][0].transcript;
+    try{
+      const res=await fetch('/api/mood-voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript})});
+      const data=await res.json();
+      const emoji=moodEmojis[data.mood.toLowerCase()]||moodEmojis.default;
+      appendMessage(`Detected mood: ${emoji} ${data.mood}`,'bot');
+    }catch(err){
+      console.error("Voice mood fetch error:",err);
+      appendMessage("⚠️ Could not detect mood",'bot');
+    }
+  };
+  recognition.onerror=()=>{appendMessage("⚠️ Voice recognition error",'bot');};
+});
 
-voiceMoodBtn.addEventListener('click',async()=>{ /* (unchanged) */ });
-
-gardenBtn.addEventListener('click',async()=>{try{const res=await fetch('https://mental-health-app-zoi9.onrender.com/api/moods');const data=await res.json(); /* rest unchanged */ }catch{appendMessage("⚠️ Could not load Mood Garden","bot");}});
+gardenBtn.addEventListener('click',async()=>{
+  try{
+    const res=await fetch('/api/moods');
+    const data=await res.json();
+    appendMessage(`Loaded ${data.moods.length} moods`,'bot');
+  }catch(err){
+    console.error("Moods fetch error:",err);
+    appendMessage("⚠️ Could not load Mood Garden","bot");
+  }
+});
 </script>
 </body>
 </html>
