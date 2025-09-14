@@ -66,28 +66,58 @@ function appendMessage(text,type='bot'){const div=document.createElement('div');
 languageToggleBtn.addEventListener('click',()=>{currentLanguage=currentLanguage==='en'?'bg':'en';const lang=translations[currentLanguage];appTitle.textContent=lang.appTitle;languageToggleBtn.textContent=lang.languageToggle;userInput.placeholder=lang.userInputPlaceholder;sendMessageBtn.textContent=lang.sendMessageBtn;moodInput.placeholder=lang.moodInputPlaceholder;logMoodBtn.textContent=lang.logMoodBtn;mindfulnessBtn.textContent=lang.mindfulnessBtn;});
 
 // send message
-sendMessageBtn.addEventListener('click',async()=>{
-  const msg=userInput.value.trim();
-  if(!msg)return;
-  appendMessage(msg,'user');
-  userInput.value='';
-  try{
-    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,language:currentLanguage})});
-    const data=await res.json();
-    appendMessage(data.reply,'bot');
-  }catch(err){console.error("Chat error",err);appendMessage("⚠️ AI is offline",'bot');}
+sendMessageBtn.addEventListener('click', async () => {
+  const msg = userInput.value.trim();
+  if (!msg) return;
+  appendMessage(msg, 'user');
+  userInput.value = '';
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, language: currentLanguage })
+    });
+    const data = await res.json();
+    appendMessage(data.reply, 'bot');
+  } catch (err) {
+    console.error("Chat error", err);
+    appendMessage("⚠️ AI is offline", 'bot');
+  }
+});
+
+// ⌨️ Enter key sends message
+userInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    sendMessageBtn.click();
+  }
 });
 
 // log mood
-logMoodBtn.addEventListener('click',async()=>{
-  const mood=moodInput.value.trim();
-  if(!mood)return;
-  try{
-    const res=await fetch('/api/mood',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mood,language:currentLanguage})});
-    const data=await res.json();
-    appendMessage(`Mood logged: ${mood} — ${data.heartbeat}`,'bot');
-    moodInput.value='';
-  }catch(err){console.error("Mood error",err);appendMessage("⚠️ Could not log mood",'bot');}
+logMoodBtn.addEventListener('click', async () => {
+  const mood = moodInput.value.trim();
+  if (!mood) return;
+  try {
+    const res = await fetch('/api/mood', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mood, language: currentLanguage })
+    });
+    const data = await res.json();
+    appendMessage(`Mood logged: ${mood} — ${data.heartbeat}`, 'bot');
+    moodInput.value = '';
+  } catch (err) {
+    console.error("Mood error", err);
+    appendMessage("⚠️ Could not log mood", 'bot');
+  }
+});
+
+// ⌨️ Enter key logs mood
+moodInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    logMoodBtn.click();
+  }
 });
 
 // mindfulness
