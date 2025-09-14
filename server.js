@@ -71,22 +71,36 @@ app.post('/api/chat', async (req, res) => {
       { role: "user", content: message }
     ];
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages,
-        max_tokens: 150,
-        temperature: 0.7
-      })
-    });
+try {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "gpt-3.5-turbo",
+      messages,
+      max_tokens: 150,
+      temperature: 0.7
+    })
+  });
 
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "I'm here with you ❤️";
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("OpenAI API Error:", response.status, errorText);
+    return res.status(500).json({ error: "OpenAI API call failed" });
+  }
+
+  const data = await response.json();
+  const reply = data.choices?.[0]?.message?.content || "I'm here with you ❤️";
+  res.json({ reply });
+
+} catch (err) {
+  console.error("Server Error:", err);
+  res.status(500).json({ error: "Server crashed" });
+}
+
 
     // Save memory
     memory.push({ user: message, bot: reply, timestamp: new Date().toISOString() });
