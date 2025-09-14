@@ -136,6 +136,7 @@ const translations = {
   de: {appTitle:"Frag die KI",language:"🌐 Sprache: Deutsch",placeholder:"Frag mich etwas...",send:"Senden",speak:"🎤 Sprechen",listening:"🎤 Ich höre zu... Sprich jetzt."}
 };
 let currentLang='en';
+let voiceMode=false;
 
 const appTitle=document.getElementById('appTitle');
 const languageToggleBtn=document.getElementById('languageToggleBtn');
@@ -163,6 +164,13 @@ function appendMessage(text,type){
   chatBox.appendChild(div);
   chatBox.scrollTop=chatBox.scrollHeight;
 }
+
+function speakText(text){
+  const utter=new SpeechSynthesisUtterance(text);
+  utter.lang=currentLang==='en'?'en-US':currentLang==='bg'?'bg-BG':'de-DE';
+  speechSynthesis.speak(utter);
+}
+
 userInput.addEventListener('keydown',e=>{if(e.key==='Enter')sendMessageBtn.click();});
 
 sendMessageBtn.addEventListener('click',async()=>{
@@ -170,7 +178,9 @@ sendMessageBtn.addEventListener('click',async()=>{
   appendMessage(msg,'user');userInput.value='';
   try{
     const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,language:currentLang})});
-    const data=await res.json();appendMessage(data.reply,'bot');
+    const data=await res.json();
+    appendMessage(data.reply,'bot');
+    if(voiceMode){ speakText(data.reply); voiceMode=false; }
   }catch{appendMessage("⚠️ AI is offline",'bot');}
 });
 
@@ -180,14 +190,19 @@ speakBtn.addEventListener('click',()=>{
   recog.lang=currentLang==='en'?'en-US':currentLang==='bg'?'bg-BG':'de-DE';
   appendMessage(translations[currentLang].listening,'bot');
   recog.start();
-  recog.onresult=e=>{const transcript=e.results[0][0].transcript;userInput.value=transcript;sendMessageBtn.click();};
+  recog.onresult=e=>{
+    const transcript=e.results[0][0].transcript;
+    userInput.value=transcript;
+    voiceMode=true;
+    sendMessageBtn.click();
+  };
 });
 
 // 🌙 Theme toggle
 if(localStorage.getItem('theme')==='dark') document.body.classList.add('dark');
 themeToggleBtn.addEventListener('click',()=>{
   document.body.classList.toggle('dark');
-  localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+  localStorage.setItem('theme',document.body.classList.contains('dark')?'dark':'light');
 });
 </script>
 </body>
