@@ -87,6 +87,34 @@
       cursor: pointer;
       margin-left: 5px;
     }
+    .typing {
+      display: inline-block;
+      margin: 5px 0;
+      margin-right: auto;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .typing span {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: #666;
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: blink 1.4s infinite both;
+    }
+    .typing span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .typing span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    @keyframes blink {
+      0%, 80%, 100% { opacity: 0; }
+      40% { opacity: 1; }
+    }
     .row {
       display: flex;
       gap: 5px;
@@ -147,34 +175,13 @@
 
 <script>
 const translations = {
-  en: {
-    appTitle: "Ask AI",
-    language: "🌐 Language: English",
-    placeholder: "Ask me anything...",
-    send: "Send",
-    speak: "🎤 Talk",
-    listening: "🎤 Listening... Speak now."
-  },
-  bg: {
-    appTitle: "Попитай AI",
-    language: "🌐 Език: Български",
-    placeholder: "Попитай ме нещо...",
-    send: "Изпрати",
-    speak: "🎤 Говори",
-    listening: "🎤 Слушам... Говори сега."
-  },
-  de: {
-    appTitle: "Frag die KI",
-    language: "🌐 Sprache: Deutsch",
-    placeholder: "Frag mich etwas...",
-    send: "Senden",
-    speak: "🎤 Sprechen",
-    listening: "🎤 Ich höre zu... Sprich jetzt."
-  }
+  en: { appTitle: "Ask AI", language: "🌐 Language: English", placeholder: "Ask me anything...", send: "Send", speak: "🎤 Talk", listening: "🎤 Listening... Speak now." },
+  bg: { appTitle: "Попитай AI", language: "🌐 Език: Български", placeholder: "Попитай ме нещо...", send: "Изпрати", speak: "🎤 Говори", listening: "🎤 Слушам... Говори сега." },
+  de: { appTitle: "Frag die KI", language: "🌐 Sprache: Deutsch", placeholder: "Frag mich etwas...", send: "Senden", speak: "🎤 Sprechen", listening: "🎤 Ich höre zu... Sprich jetzt." }
 };
 
 let currentLang = 'en';
-let isMicMode = false; // 🟢 Track if using microphone
+let microphoneUsed = false;
 
 const appTitle = document.getElementById('appTitle');
 const languageToggleBtn = document.getElementById('languageToggleBtn');
@@ -192,16 +199,12 @@ function updateLanguage() {
   sendMessageBtn.textContent = t.send;
   speakBtn.textContent = t.speak;
 }
-
 languageToggleBtn.addEventListener('click', () => {
   currentLang = currentLang === 'en' ? 'bg' : currentLang === 'bg' ? 'de' : 'en';
   updateLanguage();
 });
 updateLanguage();
-
-darkModeBtn.addEventListener('click', () => {
-  document.body.classList.toggle('dark');
-});
+darkModeBtn.addEventListener('click', () => document.body.classList.toggle('dark'));
 
 function speakText(text) {
   const utter = new SpeechSynthesisUtterance(text);
@@ -233,6 +236,14 @@ sendMessageBtn.addEventListener('click', async () => {
   if (!msg) return;
   appendMessage(msg, 'user');
   userInput.value = '';
+
+  // typing dots
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'typing';
+  typingDiv.innerHTML = '<span></span><span></span><span></span>';
+  chatBox.appendChild(typingDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
@@ -240,10 +251,14 @@ sendMessageBtn.addEventListener('click', async () => {
       body: JSON.stringify({ message: msg, language: currentLang })
     });
     const data = await res.json();
+    chatBox.removeChild(typingDiv);
     appendMessage(data.reply, 'bot');
-    if (isMicMode) speakText(data.reply); // ✅ only speak if microphone was used
-    isMicMode = false; // reset
+    if (microphoneUsed) {
+      speakText(data.reply);
+      microphoneUsed = false;
+    }
   } catch {
+    chatBox.removeChild(typingDiv);
     appendMessage("⚠️ AI is offline", 'bot');
   }
 });
@@ -253,12 +268,12 @@ speakBtn.addEventListener('click', () => {
     appendMessage("⚠️ Browser does not support speech", 'bot');
     return;
   }
-  isMicMode = true; // ✅ mark mic mode on
   const recog = new webkitSpeechRecognition();
   recog.lang = currentLang === 'en' ? 'en-US' : currentLang === 'bg' ? 'bg-BG' : 'de-DE';
   appendMessage(translations[currentLang].listening, 'bot');
   recog.start();
   recog.onresult = e => {
+    microphoneUsed = true;
     const transcript = e.results[0][0].transcript;
     userInput.value = transcript;
     sendMessageBtn.click();
