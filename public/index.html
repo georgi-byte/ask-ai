@@ -5,75 +5,208 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Helper</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#f0f2f5; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
-    .container { background:#fff; padding:25px; border-radius:15px; box-shadow:0 0 15px rgba(0,0,0,0.1); width:420px; text-align:center; display:flex; flex-direction:column; }
-    h1{ color:#1e88e5; margin-bottom:10px; }
+    body {
+      font-family: Arial, sans-serif;
+      background:#f0f2f5;
+      margin:0; display:flex; height:100vh;
+    }
+    .sidebar {
+      width: 250px;
+      background: #1e88e5;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+    .sidebar h2 {
+      text-align:center;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+    .sidebar button {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: white;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .sidebar button.active {
+      background: #1565c0;
+    }
+    .main {
+      flex: 1;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+    }
+    .panel {
+      background:#fff;
+      width: 500px;
+      max-width: 95%;
+      padding:25px;
+      border-radius:15px;
+      box-shadow:0 0 15px rgba(0,0,0,0.1);
+      display:none;
+      flex-direction:column;
+    }
+    .panel.active { display:flex; }
+
     .chat-box{ border:1px solid #ddd; height:300px; overflow-y:auto; margin:15px 0; padding:10px; background:#fafafa; border-radius:8px; text-align:left; }
     .message{ margin:5px 10px; padding:8px; border-radius:5px; max-width:80%; }
     .user{ background:#e3f2fd; margin-left:auto; }
     .bot{ background:#e8eaf6; margin-right:auto; }
-    input[type="text"]{ width:70%; padding:10px; border:1px solid #ccc; border-radius:6px; }
-    button{ padding:10px 15px; margin:5px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; background:#1e88e5; color:white; transition:0.2s; }
-    button:hover{ background:#1565c0; }
-    #exerciseBtn{ background:#43a047; }
-    #talkBtn{ background:#8e24aa; }
+
+    input[type="text"], textarea{
+      width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;
+    }
+    button.action {
+      padding:10px 15px; margin:5px 0; border:none; border-radius:6px; cursor:pointer;
+      background:#1e88e5; color:white; font-weight:bold;
+    }
+    button.action:hover{ background:#1565c0; }
+    ul{list-style:none;padding:0;}
+    li{padding:5px 0;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;}
+    li.done{text-decoration:line-through;color:#777;}
   </style>
 </head>
 <body>
-<div class="container">
-  <h1>AI Helper</h1>
-  <div class="chat-box" id="chatBox"></div>
-  <div>
-    <input type="text" id="userInput" placeholder="Ask anything..." />
-    <button id="sendBtn">Send</button>
+  <div class="sidebar">
+    <h2>🧠 AI Helper</h2>
+    <button data-panel="chat" class="active">💬 Chat</button>
+    <button data-panel="voice">🎤 Talk</button>
+    <button data-panel="exercise">🧘 Break</button>
+    <button data-panel="notes">📝 Notes</button>
+    <button data-panel="todo">✅ To-Do</button>
+    <button data-panel="calc">🧮 Calculator</button>
   </div>
-  <button id="exerciseBtn">🧘 Take a Quick Break</button>
-  <button id="talkBtn">🎤 Talk to AI</button>
-</div>
+
+  <div class="main">
+    <!-- Chat Panel -->
+    <div id="chat" class="panel active">
+      <h2>💬 Ask the AI</h2>
+      <div class="chat-box" id="chatBox"></div>
+      <div style="display:flex;gap:5px;">
+        <input type="text" id="userInput" placeholder="Ask anything...">
+        <button id="sendBtn" class="action">Send</button>
+      </div>
+    </div>
+
+    <!-- Voice Panel -->
+    <div id="voice" class="panel">
+      <h2>🎤 Talk to AI</h2>
+      <button id="talkBtn" class="action">Start Talking</button>
+      <div class="chat-box" id="voiceBox"></div>
+    </div>
+
+    <!-- Exercise Panel -->
+    <div id="exercise" class="panel">
+      <h2>🧘 Quick Break</h2>
+      <button id="exerciseBtn" class="action">Suggest a Break</button>
+      <div class="chat-box" id="exerciseBox"></div>
+    </div>
+
+    <!-- Notes Panel -->
+    <div id="notes" class="panel">
+      <h2>📝 Notes</h2>
+      <textarea id="notesArea" rows="10" placeholder="Write your notes here..."></textarea>
+      <button id="saveNotes" class="action">Save Notes</button>
+    </div>
+
+    <!-- To-Do Panel -->
+    <div id="todo" class="panel">
+      <h2>✅ To-Do List</h2>
+      <div style="display:flex;gap:5px;">
+        <input type="text" id="todoInput" placeholder="New task...">
+        <button id="addTodo" class="action">Add</button>
+      </div>
+      <ul id="todoList"></ul>
+    </div>
+
+    <!-- Calculator Panel -->
+    <div id="calc" class="panel">
+      <h2>🧮 Calculator</h2>
+      <input type="text" id="calcInput" placeholder="e.g. 5+5*2">
+      <button id="calcBtn" class="action">Calculate</button>
+      <div id="calcResult" style="margin-top:10px;font-weight:bold;"></div>
+    </div>
+  </div>
 
 <script>
+const panels=document.querySelectorAll('.panel');
+document.querySelectorAll('.sidebar button').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('.sidebar button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    panels.forEach(p=>p.classList.remove('active'));
+    document.getElementById(btn.dataset.panel).classList.add('active');
+  }
+});
+
+// --- CHAT ---
 const chatBox=document.getElementById('chatBox');
 const userInput=document.getElementById('userInput');
 const sendBtn=document.getElementById('sendBtn');
-const talkBtn=document.getElementById('talkBtn');
-const exerciseBtn=document.getElementById('exerciseBtn');
-
 function appendMessage(text,type='bot'){const div=document.createElement('div');div.className=`message ${type}`;div.innerText=text;chatBox.appendChild(div);chatBox.scrollTop=chatBox.scrollHeight;}
-
-sendBtn.addEventListener('click',async()=>{
-  const msg=userInput.value.trim();
-  if(!msg)return;
-  appendMessage(msg,'user');
-  userInput.value='';
+sendBtn.onclick=async()=>{
+  const msg=userInput.value.trim(); if(!msg)return;
+  appendMessage(msg,'user'); userInput.value='';
   try{
     const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
-    const data=await res.json();
-    appendMessage(data.reply,'bot');
+    const data=await res.json(); appendMessage(data.reply,'bot');
   }catch{appendMessage("⚠️ AI is offline",'bot');}
-});
+};
 userInput.addEventListener('keypress',e=>{if(e.key==='Enter'){e.preventDefault();sendBtn.click();}});
 
-exerciseBtn.addEventListener('click',()=>{
-  const ideas=["Stretch for 30 seconds 🌿","Drink some water 💧","Take 5 deep breaths 🌬️","Walk around for 1 min 🚶","Look away from screen for 30 sec 👀"];
-  const idea=ideas[Math.floor(Math.random()*ideas.length)];
-  appendMessage("💡 "+idea,'bot');
-});
-
-talkBtn.addEventListener('click',()=>{
-  if(!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)){appendMessage("⚠️ Your browser does not support voice input",'bot');return;}
+// --- VOICE ---
+const voiceBox=document.getElementById('voiceBox');
+document.getElementById('talkBtn').onclick=()=>{
+  if(!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)){voiceBox.innerText="⚠️ Not supported";return;}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  const recognition=new SR();
-  recognition.lang='en-US';
-  recognition.start();
-  appendMessage("🎤 Listening...","bot");
+  const recognition=new SR(); recognition.lang='en-US'; recognition.start();
+  voiceBox.innerHTML+="\n🎤 Listening...";
   recognition.onresult=async(e)=>{
     const transcript=e.results[0][0].transcript;
-    appendMessage("🗣️ "+transcript,'user');
+    const userDiv=document.createElement('div');userDiv.className='message user';userDiv.innerText=transcript;voiceBox.appendChild(userDiv);
     const res=await fetch('/api/voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript})});
     const data=await res.json();
-    appendMessage(data.reply,'bot');
+    const botDiv=document.createElement('div');botDiv.className='message bot';botDiv.innerText=data.reply;voiceBox.appendChild(botDiv);
   };
-});
+};
+
+// --- EXERCISE ---
+document.getElementById('exerciseBtn').onclick=()=>{
+  const ideas=["Stretch for 30 sec 🌿","Drink water 💧","Take 5 deep breaths 🌬️","Walk around 🚶","Look away for 30 sec 👀"];
+  const idea=ideas[Math.floor(Math.random()*ideas.length)];
+  const div=document.createElement('div');div.className='message bot';div.innerText="💡 "+idea;document.getElementById('exerciseBox').appendChild(div);
+};
+
+// --- NOTES ---
+const notesArea=document.getElementById('notesArea');
+notesArea.value=localStorage.getItem('notes')||'';
+document.getElementById('saveNotes').onclick=()=>{
+  localStorage.setItem('notes',notesArea.value);
+  alert("✅ Notes saved");
+};
+
+// --- TODO ---
+const todoInput=document.getElementById('todoInput');
+const todoList=document.getElementById('todoList');
+const tasks=JSON.parse(localStorage.getItem('tasks')||'[]');
+function renderTodos(){todoList.innerHTML='';tasks.forEach((t,i)=>{const li=document.createElement('li');li.className=t.done?'done':'';li.innerHTML=`<span>${t.text}</span> <button onclick="toggleTask(${i})">✔</button>`;todoList.appendChild(li);});localStorage.setItem('tasks',JSON.stringify(tasks));}
+window.toggleTask=(i)=>{tasks[i].done=!tasks[i].done;renderTodos();};
+document.getElementById('addTodo').onclick=()=>{if(todoInput.value.trim()){tasks.push({text:todoInput.value,done:false});todoInput.value='';renderTodos();}};
+renderTodos();
+
+// --- CALC ---
+document.getElementById('calcBtn').onclick=()=>{
+  try{
+    const val=eval(document.getElementById('calcInput').value);
+    document.getElementById('calcResult').innerText="Result: "+val;
+  }catch{document.getElementById('calcResult').innerText="❌ Error";}
+};
 </script>
 </body>
 </html>
