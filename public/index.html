@@ -14,6 +14,11 @@
       min-height: 100vh;
       margin: 0;
       color: #333;
+      transition: background 0.3s, color 0.3s;
+    }
+    body.dark {
+      background: #1e1e1e;
+      color: #f5f5f5;
     }
     .container {
       background: rgba(255,255,255,0.95);
@@ -22,11 +27,18 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       width: 95%;
       max-width: 500px;
+      transition: background 0.3s;
+    }
+    body.dark .container {
+      background: rgba(30,30,30,0.95);
     }
     h1 {
       text-align: center;
       color: #2c3e50;
       margin-bottom: 10px;
+    }
+    body.dark h1 {
+      color: #f5f5f5;
     }
     .chat-box {
       border: 1px solid #ccc;
@@ -37,25 +49,43 @@
       background: #f9f9f9;
       margin-bottom: 10px;
     }
+    body.dark .chat-box {
+      background: #2a2a2a;
+      border-color: #444;
+    }
     .message {
       margin: 5px 0;
       padding: 8px 12px;
       border-radius: 8px;
       max-width: 75%;
       word-wrap: break-word;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 5px;
+      position: relative;
     }
-    .user { background: #d1ecf1; margin-left: auto; }
-    .bot { background: #ffffff; margin-right: auto; border: 1px solid #ddd; }
+    .user {
+      background: #d1ecf1;
+      margin-left: auto;
+    }
+    .bot {
+      background: #ffffff;
+      margin-right: auto;
+      border: 1px solid #ddd;
+    }
+    body.dark .user {
+      background: #37474f;
+      color: #fff;
+    }
+    body.dark .bot {
+      background: #333;
+      border: 1px solid #555;
+      color: #fff;
+    }
     .read-btn {
+      font-size: 12px;
       background: none;
       border: none;
       color: #3498db;
-      font-size: 16px;
       cursor: pointer;
+      margin-left: 5px;
     }
     .row {
       display: flex;
@@ -78,12 +108,31 @@
       font-weight: bold;
     }
     button:hover { background: #2980b9; }
+    .tools {
+      display: grid;
+      grid-template-columns: repeat(auto-fit,minmax(100px,1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .tool-btn {
+      background: #2ecc71;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      font-size: 14px;
+    }
+    .tool-btn:hover { background: #27ae60; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1 id="appTitle">Ask AI</h1>
     <button id="languageToggleBtn">🌐 Language: English</button>
+    <button id="darkModeBtn">🌙 Dark Mode</button>
+
     <div class="chat-box" id="chatBox"></div>
 
     <div class="row">
@@ -91,20 +140,44 @@
       <button id="sendMessageBtn">Send</button>
     </div>
 
-    <button id="speakBtn" style="margin-top:10px;">🎤 Talk</button>
+    <div class="tools">
+      <button class="tool-btn" id="speakBtn">🎤 Talk</button>
+    </div>
   </div>
 
 <script>
 const translations = {
-  en: {appTitle:"Ask AI",language:"🌐 Language: English",placeholder:"Ask me anything...",send:"Send",speak:"🎤 Talk",listening:"🎤 Listening... Speak now."},
-  bg: {appTitle:"Попитай AI",language:"🌐 Език: Български",placeholder:"Попитай ме нещо...",send:"Изпрати",speak:"🎤 Говори",listening:"🎤 Слушам... Говори сега."},
-  de: {appTitle:"Frag die KI",language:"🌐 Sprache: Deutsch",placeholder:"Frag mich etwas...",send:"Senden",speak:"🎤 Sprechen",listening:"🎤 Ich höre zu... Sprich jetzt."}
+  en: {
+    appTitle: "Ask AI",
+    language: "🌐 Language: English",
+    placeholder: "Ask me anything...",
+    send: "Send",
+    speak: "🎤 Talk",
+    listening: "🎤 Listening... Speak now."
+  },
+  bg: {
+    appTitle: "Попитай AI",
+    language: "🌐 Език: Български",
+    placeholder: "Попитай ме нещо...",
+    send: "Изпрати",
+    speak: "🎤 Говори",
+    listening: "🎤 Слушам... Говори сега."
+  },
+  de: {
+    appTitle: "Frag die KI",
+    language: "🌐 Sprache: Deutsch",
+    placeholder: "Frag mich etwas...",
+    send: "Senden",
+    speak: "🎤 Sprechen",
+    listening: "🎤 Ich höre zu... Sprich jetzt."
+  }
 };
 
 let currentLang = 'en';
 
 const appTitle = document.getElementById('appTitle');
 const languageToggleBtn = document.getElementById('languageToggleBtn');
+const darkModeBtn = document.getElementById('darkModeBtn');
 const userInput = document.getElementById('userInput');
 const sendMessageBtn = document.getElementById('sendMessageBtn');
 const speakBtn = document.getElementById('speakBtn');
@@ -118,11 +191,16 @@ function updateLanguage() {
   sendMessageBtn.textContent = t.send;
   speakBtn.textContent = t.speak;
 }
+
 languageToggleBtn.addEventListener('click', () => {
   currentLang = currentLang === 'en' ? 'bg' : currentLang === 'bg' ? 'de' : 'en';
   updateLanguage();
 });
 updateLanguage();
+
+darkModeBtn.addEventListener('click', () => {
+  document.body.classList.toggle('dark');
+});
 
 function speakText(text) {
   const utter = new SpeechSynthesisUtterance(text);
@@ -133,31 +211,22 @@ function speakText(text) {
 function appendMessage(text, type) {
   const div = document.createElement('div');
   div.className = `message ${type}`;
-  const span = document.createElement('span');
-  span.textContent = text;
-
-  div.appendChild(span);
-
+  div.innerHTML = `${text.replace(/\n/g,'<br>')}`;
   if (type === 'bot') {
     const btn = document.createElement('button');
-    btn.className = 'read-btn';
     btn.textContent = '🔊';
-    btn.onclick = () => speakText(text);
+    btn.className = 'read-btn';
+    btn.addEventListener('click', () => speakText(text));
     div.appendChild(btn);
   }
-
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
-
-  if (type === 'bot') speakText(text);
 }
 
-// Send on Enter
 userInput.addEventListener('keydown', e => {
   if (e.key === 'Enter') sendMessageBtn.click();
 });
 
-// Send message
 sendMessageBtn.addEventListener('click', async () => {
   const msg = userInput.value.trim();
   if (!msg) return;
@@ -171,12 +240,12 @@ sendMessageBtn.addEventListener('click', async () => {
     });
     const data = await res.json();
     appendMessage(data.reply, 'bot');
+    speakText(data.reply); // 🔊 Auto speak first time
   } catch {
     appendMessage("⚠️ AI is offline", 'bot');
   }
 });
 
-// Speak button
 speakBtn.addEventListener('click', () => {
   if (!('webkitSpeechRecognition' in window)) {
     appendMessage("⚠️ Browser does not support speech", 'bot');
