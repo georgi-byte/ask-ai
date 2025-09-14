@@ -16,6 +16,11 @@ app.use(express.static("public"));
 
 // Replace with your OpenAI API key
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // Paste your key here
+if (!OPENAI_API_KEY) {
+  console.error("❌ OPENAI_API_KEY is NOT set");
+} else {
+  console.log("✅ OPENAI_API_KEY is set");
+}
 
 // === Helper functions ===
 async function readJSON(file, fallback) {
