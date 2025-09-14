@@ -16,8 +16,6 @@
       --bot-border: #ddd;
       --button-bg: #3498db;
       --button-hover: #2980b9;
-      --tool-bg: #2ecc71;
-      --tool-hover: #27ae60;
     }
 
     body.dark {
@@ -31,8 +29,6 @@
       --bot-border: #555;
       --button-bg: #5555aa;
       --button-hover: #444499;
-      --tool-bg: #228855;
-      --tool-hover: #1b7045;
     }
 
     body {
@@ -110,25 +106,6 @@
     }
     button:hover { background: var(--button-hover); }
 
-    .tools {
-      display: grid;
-      grid-template-columns: repeat(auto-fit,minmax(100px,1fr));
-      gap: 10px;
-      margin-top: 15px;
-    }
-
-    .tool-btn {
-      background: var(--tool-bg);
-      color: white;
-      border: none;
-      padding: 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      text-align: center;
-      font-size: 14px;
-    }
-    .tool-btn:hover { background: var(--tool-hover); }
-
     .topbar {
       display: flex;
       justify-content: space-between;
@@ -148,20 +125,15 @@
     <div class="row">
       <input type="text" id="userInput" placeholder="Ask me anything...">
       <button id="sendMessageBtn">Send</button>
-    </div>
-
-    <div class="tools">
-      <button class="tool-btn" id="calcBtn">🧮 Calculator</button>
-      <button class="tool-btn" id="todoBtn">📝 To-Do</button>
-      <button class="tool-btn" id="speakBtn">🎤 Talk</button>
+      <button id="speakBtn">🎤</button>
     </div>
   </div>
 
 <script>
 const translations = {
-  en: {appTitle:"Ask AI",language:"🌐 Language: English",placeholder:"Ask me anything...",send:"Send",calc:"🧮 Calculator",todo:"📝 To-Do",speak:"🎤 Talk",listening:"🎤 Listening... Speak now."},
-  bg: {appTitle:"Попитай AI",language:"🌐 Език: Български",placeholder:"Попитай ме нещо...",send:"Изпрати",calc:"🧮 Калкулатор",todo:"📝 Задачи",speak:"🎤 Говори",listening:"🎤 Слушам... Говори сега."},
-  de: {appTitle:"Frag die KI",language:"🌐 Sprache: Deutsch",placeholder:"Frag mich etwas...",send:"Senden",calc:"🧮 Rechner",todo:"📝 Aufgaben",speak:"🎤 Sprechen",listening:"🎤 Ich höre zu... Sprich jetzt."}
+  en: {appTitle:"Ask AI",language:"🌐 Language: English",placeholder:"Ask me anything...",send:"Send",speak:"🎤 Talk",listening:"🎤 Listening... Speak now."},
+  bg: {appTitle:"Попитай AI",language:"🌐 Език: Български",placeholder:"Попитай ме нещо...",send:"Изпрати",speak:"🎤 Говори",listening:"🎤 Слушам... Говори сега."},
+  de: {appTitle:"Frag die KI",language:"🌐 Sprache: Deutsch",placeholder:"Frag mich etwas...",send:"Senden",speak:"🎤 Sprechen",listening:"🎤 Ich höre zu... Sprich jetzt."}
 };
 let currentLang='en';
 
@@ -170,8 +142,6 @@ const languageToggleBtn=document.getElementById('languageToggleBtn');
 const themeToggleBtn=document.getElementById('themeToggleBtn');
 const userInput=document.getElementById('userInput');
 const sendMessageBtn=document.getElementById('sendMessageBtn');
-const calcBtn=document.getElementById('calcBtn');
-const todoBtn=document.getElementById('todoBtn');
 const speakBtn=document.getElementById('speakBtn');
 const chatBox=document.getElementById('chatBox');
 
@@ -181,8 +151,6 @@ function updateLanguage(){
   languageToggleBtn.textContent=t.language;
   userInput.placeholder=t.placeholder;
   sendMessageBtn.textContent=t.send;
-  calcBtn.textContent=t.calc;
-  todoBtn.textContent=t.todo;
   speakBtn.textContent=t.speak;
 }
 languageToggleBtn.addEventListener('click',()=>{currentLang=currentLang==='en'?'bg':currentLang==='bg'?'de':'en';updateLanguage();});
@@ -213,15 +181,6 @@ speakBtn.addEventListener('click',()=>{
   appendMessage(translations[currentLang].listening,'bot');
   recog.start();
   recog.onresult=e=>{const transcript=e.results[0][0].transcript;userInput.value=transcript;sendMessageBtn.click();};
-});
-
-calcBtn.addEventListener('click',()=>{
-  const exp=prompt("Enter expression:");if(!exp)return;
-  try{appendMessage("Result: "+eval(exp),'bot');}catch{appendMessage("Invalid expression.",'bot');}
-});
-
-todoBtn.addEventListener('click',()=>{
-  const todo=prompt("Enter a task:");if(!todo)return;appendMessage("📝 "+todo,'bot');
 });
 
 // 🌙 Theme toggle
