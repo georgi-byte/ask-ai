@@ -31,40 +31,19 @@ async function writeJSON(file, data) {
   await fs.writeFile(file, JSON.stringify(data, null, 2));
 }
 
-// === Main AI chat ===
+// === Chat Endpoint ===
 app.post('/api/chat', async (req, res) => {
-  const { message, language } = req.body;
+  const { message } = req.body;
   try {
     const memory = await readJSON('memory.json', []);
     const recent = memory.slice(-30);
 
-    const today = new Date();
-    const decayed = recent.map(m => {
-      const daysAgo = Math.floor((today - new Date(m.timestamp)) / (1000 * 60 * 60 * 24));
-      if (daysAgo >= 7) return null;
-      if (daysAgo >= 3) {
-        return {
-          user: `(faded memory from ${daysAgo} days ago) ${m.user}`,
-          bot: m.bot
-        };
-      }
-      return m;
-    }).filter(Boolean);
-
-    // 🌍 Add language instruction
-    const languageMap = {
-      en: "Respond in English.",
-      bg: "Отговаряй на български.",
-      de: "Antworte auf Deutsch."
-    };
-    const languageInstruction = languageMap[language] || languageMap.en;
-
     const messages = [
       {
         role: "system",
-        content: `You are a helpful AI assistant. ${languageInstruction}`
+        content: "You are a helpful AI assistant. Always format your answers clearly with:\n- bullet points\n- numbered steps\n- short paragraphs\nMake answers easy to read and well structured."
       },
-      ...decayed.flatMap(m => [
+      ...recent.flatMap(m => [
         { role: "user", content: m.user },
         { role: "assistant", content: m.bot }
       ]),
@@ -80,7 +59,7 @@ app.post('/api/chat', async (req, res) => {
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
         messages,
-        max_tokens: 200,
+        max_tokens: 400,
         temperature: 0.7
       })
     });
@@ -92,8 +71,8 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "I'm here with you ❤️";
-
+    const reply = data.choices?.[0]?.message?.content || "I'm here to help!";
+    
     memory.push({ user: message, bot: reply, timestamp: new Date().toISOString() });
     await writeJSON('memory.json', memory);
 
