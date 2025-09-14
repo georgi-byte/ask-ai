@@ -125,6 +125,13 @@
       font-size: 14px;
     }
     .tool-btn:hover { background: #27ae60; }
+    select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
   </style>
 </head>
 <body>
@@ -132,6 +139,8 @@
     <h1 id="appTitle">Ask AI</h1>
     <button id="languageToggleBtn">🌐 Language: English</button>
     <button id="darkModeBtn">🌙 Dark Mode</button>
+
+    <select id="voiceSelect"></select>
 
     <div class="chat-box" id="chatBox"></div>
 
@@ -174,7 +183,7 @@ const translations = {
 };
 
 let currentLang = 'en';
-let voiceMode = false;
+let selectedVoice = null;
 
 const appTitle = document.getElementById('appTitle');
 const languageToggleBtn = document.getElementById('languageToggleBtn');
@@ -183,6 +192,7 @@ const userInput = document.getElementById('userInput');
 const sendMessageBtn = document.getElementById('sendMessageBtn');
 const speakBtn = document.getElementById('speakBtn');
 const chatBox = document.getElementById('chatBox');
+const voiceSelect = document.getElementById('voiceSelect');
 
 function updateLanguage() {
   const t = translations[currentLang];
@@ -192,7 +202,6 @@ function updateLanguage() {
   sendMessageBtn.textContent = t.send;
   speakBtn.textContent = t.speak;
 }
-
 languageToggleBtn.addEventListener('click', () => {
   currentLang = currentLang === 'en' ? 'bg' : currentLang === 'bg' ? 'de' : 'en';
   updateLanguage();
@@ -203,9 +212,27 @@ darkModeBtn.addEventListener('click', () => {
   document.body.classList.toggle('dark');
 });
 
+function populateVoices() {
+  const voices = speechSynthesis.getVoices();
+  voiceSelect.innerHTML = voices.map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join('');
+  const saved = localStorage.getItem('voiceChoice');
+  if (saved) {
+    voiceSelect.value = saved;
+    selectedVoice = voices.find(v => v.name === saved);
+  }
+}
+speechSynthesis.onvoiceschanged = populateVoices;
+populateVoices();
+
+voiceSelect.addEventListener('change', () => {
+  selectedVoice = speechSynthesis.getVoices().find(v => v.name === voiceSelect.value);
+  localStorage.setItem('voiceChoice', selectedVoice.name);
+});
+
 function speakText(text) {
+  if (!selectedVoice) return;
   const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = currentLang === 'en' ? 'en-US' : currentLang === 'bg' ? 'bg-BG' : 'de-DE';
+  utter.voice = selectedVoice;
   speechSynthesis.speak(utter);
 }
 
@@ -241,8 +268,6 @@ sendMessageBtn.addEventListener('click', async () => {
     });
     const data = await res.json();
     appendMessage(data.reply, 'bot');
-    if (voiceMode) speakText(data.reply); // ✅ only speak if microphone was used
-    voiceMode = false;
   } catch {
     appendMessage("⚠️ AI is offline", 'bot');
   }
@@ -260,8 +285,8 @@ speakBtn.addEventListener('click', () => {
   recog.onresult = e => {
     const transcript = e.results[0][0].transcript;
     userInput.value = transcript;
-    voiceMode = true; // ✅ mark this came from microphone
     sendMessageBtn.click();
+    setTimeout(() => speakText(transcript), 1000); // Speak only when using mic
   };
 });
 </script>
