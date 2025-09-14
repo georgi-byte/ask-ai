@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Mental Health Companion</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: linear-gradient(to bottom, #e0f7fa, #80deea); display:flex; justify-content:center; align-items:center; height:100vh; margin:0; color:#333; position:relative; overflow:hidden; }
+    .container { background: rgba(255,255,255,0.9); padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); width:400px; text-align:center; position:relative; z-index:1; }
+    h1{ font-size:24px; color:#00796b; }
+    .chat-box{ border:1px solid #ccc; height:300px; overflow-y:auto; margin:10px 0; padding:10px; background:#f9f9f9; border-radius:5px; position:relative; z-index:2; }
+    .message{ margin:5px 10px; padding:8px; border-radius:5px; max-width:70%; }
+    .user{ background:#e0f7fa; margin-left:auto; text-align:right; }
+    .bot{ background:#fff; margin-right:auto; text-align:left; }
+    input[type="text"]{ width:70%; padding:8px; margin:5px; border:1px solid #ccc; border-radius:5px; }
+    button{ padding:8px 15px; margin:5px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; }
+    #sendMessageBtn{ background:#26a69a; color:white; }
+    #logMoodBtn{ background:#66bb6a; color:white; }
+    #mindfulnessBtn{ background:#ec407a; color:white; }
+    #languageToggleBtn{ background:#5c6bc0; color:white; }
+    #oracleBtn{ background:#ff9800; color:white; }
+    #voiceMoodBtn{ background:#8e24aa; color:white; }
+    #gardenBtn{ background:#4caf50; color:white; }
+    .robot{ display:flex; align-items:flex-start; margin:5px; transform:translateX(-100%); transition:transform 0.5s; }
+    .robot .face{ width:40px; height:40px; background:#26a69a; border-radius:50%; margin-right:5px; display:flex; justify-content:center; align-items:center; color:white; font-weight:bold; }
+    .robot .text{ background:#fff; padding:8px; border-radius:5px; max-width:70%; }
+    .doneBtn{ margin-top:5px; padding:5px 10px; border:none; border-radius:5px; background:#4caf50; color:white; cursor:pointer; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1 id="appTitle">AI Mental Health Companion</h1>
+  <button id="languageToggleBtn">Switch to Bulgarian</button>
+  <div class="chat-box" id="chatBox"></div>
+  <input type="text" id="userInput" placeholder="How are you feeling?">
+  <button id="sendMessageBtn">Send</button>
+  <input type="text" id="moodInput" placeholder="Log your mood (e.g., Happy)">
+  <button id="logMoodBtn">Log Mood</button>
+  <button id="mindfulnessBtn">Get Exercise</button>
+  <button id="oracleBtn">✨ Daily Oracle</button>
+  <button id="voiceMoodBtn">🎤 Echo Journal</button>
+  <button id="gardenBtn">🌱 Mood Garden</button>
+</div>
+
+<script>
+const translations = {
+  en:{appTitle:"AI Mental Health Companion", languageToggle:"Switch to Bulgarian", userInputPlaceholder:"How are you feeling?", sendMessageBtn:"Send", moodInputPlaceholder:"Log your mood (e.g., Happy)", logMoodBtn:"Log Mood", mindfulnessBtn:"Get Exercise", doneMessage:"Nice job! Keep shining! 😊", mindfulnessExercises:["Take 5 deep breaths: Inhale for 4 sec, hold 4, exhale 4. 🌬️","Listen to calming music for 1 min. 🎶","Write one thing you’re grateful for. ✍️","Quick stretch: reach up for 10 sec. 🙆","Close eyes & imagine a peaceful place 30 sec. 🌳"]},
+  bg:{appTitle:"AI Компаньон за Психично Здраве", languageToggle:"Превключи на Английски", userInputPlaceholder:"Как се чувстваш?", sendMessageBtn:"Изпрати", moodInputPlaceholder:"Запиши настроението си (напр. Щастлив)", logMoodBtn:"Запиши Настроение", mindfulnessBtn:"Вземи Упражнение", doneMessage:"Браво! Продължавай да сияеш! 😊", mindfulnessExercises:["Поеми 5 дълбоки вдишвания: Вдишай 4 сек, задръж 4, издишай 4. 🌬️","Слушай успокояваща музика 1 мин. 🎶","Запиши едно нещо, за което си благодарен. ✍️","Бързо разтягане: протегни се нагоре 10 сек. 🙆","Затвори очи и си представи спокойно място 30 сек. 🌳"]}
+};
+
+let currentLanguage='en';
+const chatBox=document.getElementById('chatBox');
+const userInput=document.getElementById('userInput');
+const sendMessageBtn=document.getElementById('sendMessageBtn');
+const moodInput=document.getElementById('moodInput');
+const logMoodBtn=document.getElementById('logMoodBtn');
+const mindfulnessBtn=document.getElementById('mindfulnessBtn');
+const languageToggleBtn=document.getElementById('languageToggleBtn');
+const appTitle=document.getElementById('appTitle');
+const oracleBtn=document.getElementById('oracleBtn');
+const voiceMoodBtn=document.getElementById('voiceMoodBtn');
+const gardenBtn=document.getElementById('gardenBtn');
+
+// mood emojis
+const moodEmojis={happy:'😊',щастлив:'😊',sad:'😢',тъжен:'😢',angry:'😣',ядосан:'😣',stressed:'😓',стресиран:'😓',calm:'😌',спокоен:'😌',excited:'🎉',развълнуван:'🎉',anxious:'😰',тревожен:'😰',content:'🙂',доволен:'🙂',grateful:'🙏',благодарен:'🙏',inspired:'✨',вдъхновен:'✨',peaceful:'🌿',мирен:'🌿',reflective:'🤔',замислен:'🤔',energetic:'⚡',енергичен:'⚡',optimistic:'🌞',оптимистичен:'🌞',default:'😶'};
+
+// language toggle
+function updateLanguage(){const lang=translations[currentLanguage];appTitle.textContent=lang.appTitle;languageToggleBtn.textContent=lang.languageToggle;userInput.placeholder=lang.userInputPlaceholder;sendMessageBtn.textContent=lang.sendMessageBtn;moodInput.placeholder=lang.moodInputPlaceholder;logMoodBtn.textContent=lang.logMoodBtn;mindfulnessBtn.textContent=lang.mindfulnessBtn;}
+languageToggleBtn.addEventListener('click',()=>{currentLanguage=currentLanguage==='en'?'bg':'en';updateLanguage();});
+updateLanguage();
+
+// helper to append messages
+function appendMessage(text,type='bot'){const div=document.createElement('div');div.className=`message ${type}`;div.innerHTML=text;chatBox.appendChild(div);chatBox.scrollTop=chatBox.scrollHeight;}
+
+// send message
+sendMessageBtn.addEventListener('click',async()=>{const msg=userInput.value.trim();if(!msg)return;appendMessage(msg,'user');userInput.value='';try{const res=await fetch('http://192.168.178.49:3000/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,language:currentLanguage})});const data=await res.json();appendMessage(data.reply,'bot');}catch{appendMessage("⚠️ AI is offline",'bot');}});
+
+// log mood
+logMoodBtn.addEventListener('click',async()=>{const mood=moodInput.value.trim();if(!mood)return;try{const res=await fetch('http://192.168.178.49:3000/api/mood',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mood,language:currentLanguage})});const data=await res.json();const emoji=moodEmojis[mood.toLowerCase()]||moodEmojis.default;appendMessage(`Mood logged: ${emoji} ${mood} — ${data.heartbeat}`,'bot');moodInput.value='';}catch{appendMessage("⚠️ Could not log mood",'bot');}});
+
+// mindfulness robot with points
+mindfulnessBtn.addEventListener('click',()=>{
+  const exercises=translations[currentLanguage].mindfulnessExercises;
+  const exercise=exercises[Math.floor(Math.random()*exercises.length)];
+  const pointsKey='mindfulnessPoints';
+  let points=parseInt(localStorage.getItem(pointsKey)||'0');
+
+  const robotDiv=document.createElement('div');
+  robotDiv.className='robot';
+  robotDiv.innerHTML=`<div class="face">🤖</div>
+                      <div class="text">
+                        ${exercise}<br>
+                        <button class="doneBtn">✅ Done</button>
+                      </div>`;
+  chatBox.appendChild(robotDiv);
+  chatBox.scrollTop=chatBox.scrollHeight;
+  setTimeout(()=>{robotDiv.style.transform='translateX(0)';},50);
+
+  const doneBtn=robotDiv.querySelector('.doneBtn');
+  doneBtn.addEventListener('click',()=>{
+    points+=10;
+    localStorage.setItem(pointsKey,points);
+    const motivational=["Great job! 🌟 Keep it up!","You're amazing! ❤️","Step by step, you shine! 🌱","Well done! Your mind thanks you. 🌸"];
+    const msg=motivational[Math.floor(Math.random()*motivational.length)];
+    robotDiv.querySelector('.text').innerHTML=`${exercise}<br>✅ Completed!<br>${msg}<br>Points: ${points}`;
+    chatBox.scrollTop=chatBox.scrollHeight;
+  });
+});
+
+// daily oracle
+oracleBtn.addEventListener('click',async()=>{try{const res=await fetch('http://192.168.178.49:3000/api/oracle');const data=await res.json();appendMessage(data.message,'bot');}catch{appendMessage("⚠️ Oracle unavailable",'bot');}});
+
+// echo journal (voice recognition)
+voiceMoodBtn.addEventListener('click',async()=>{
+  if(!navigator.mediaDevices || !window.SpeechRecognition && !window.webkitSpeechRecognition){ appendMessage("⚠️ Browser does not support voice input",'bot'); return; }
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const recognition=new SpeechRecognition();
+  recognition.lang=currentLanguage==='en'?'en-US':'bg-BG';
+  recognition.interimResults=false;
+  recognition.maxAlternatives=1;
+  appendMessage("🎤 Listening... Speak now.","bot");
+  recognition.start();
+  recognition.onresult=async(e)=>{
+    const transcript=e.results[0][0].transcript;
+    try{
+      const res=await fetch('http://192.168.178.49:3000/api/mood-voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript})});
+      const data=await res.json();
+      const emoji=moodEmojis[data.mood.toLowerCase()]||moodEmojis.default;
+      appendMessage(`Detected mood: ${emoji} ${data.mood}`,'bot');
+    }catch{appendMessage("⚠️ Could not detect mood",'bot');}
+  };
+  recognition.onerror=()=>{appendMessage("⚠️ Voice recognition error",'bot');};
+});
+
+// mood garden (weekly/monthly tabs)
+gardenBtn.addEventListener('click',async()=>{
+  try{
+    const res=await fetch('http://192.168.178.49:3000/api/moods');
+    const data=await res.json();
+    const weeks={},months={};
+    function getWeekStart(date){const d=new Date(date);const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);const monday=new Date(d.setDate(diff));monday.setHours(0,0,0,0);return monday.toISOString().split("T")[0];}
+    function getMonthKey(date){const d=new Date(date);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+    data.moods.forEach(m=>{if(!m.timestamp)return;const ws=getWeekStart(m.timestamp);if(!weeks[ws])weeks[ws]=[];weeks[ws].push(m);const mk=getMonthKey(m.timestamp);if(!months[mk])months[mk]=[];months[mk].push(m);});
+    const sortedWeeks=Object.keys(weeks).sort((a,b)=>new Date(b)-new Date(a));
+    const sortedMonths=Object.keys(months).sort((a,b)=>new Date(b)-new Date(a));
+    const garden=document.createElement('div');garden.style.padding="20px";garden.style.fontSize="18px";garden.style.border="1px solid #ccc";garden.style.borderRadius="10px";garden.style.marginTop="10px";garden.style.background="#e8f5e9";
+    const title=document.createElement('div');title.innerHTML="<b>🌱 Your Mood Garden:</b>";garden.appendChild(title);
+    const viewToggle=document.createElement('div');viewToggle.style.margin="10px 0";const weeklyBtn=document.createElement('button');weeklyBtn.textContent="Weekly View";weeklyBtn.style.marginRight="5px";const monthlyBtn=document.createElement('button');monthlyBtn.textContent="Monthly View";viewToggle.appendChild(weeklyBtn);viewToggle.appendChild(monthlyBtn);garden.appendChild(viewToggle);
+    const tabsContainer=document.createElement('div');tabsContainer.style.display="flex";tabsContainer.style.flexWrap="wrap";tabsContainer.style.margin="10px 0";
+    const contentContainer=document.createElement('div');contentContainer.style.marginTop="10px";
+    function renderWeek(ws){const moods=weeks[ws].sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));contentContainer.innerHTML=moods.map(m=>`${moodEmojis[m.mood.toLowerCase()]||'🌑'} <small>${new Date(m.timestamp).toLocaleDateString()}</small>`).join(" | ");}
+    function renderMonth(mk){const moods=months[mk].sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));contentContainer.innerHTML=moods.map(m=>`${moodEmojis[m.mood.toLowerCase()]||'🌑'} <small>${new Date(m.timestamp).toLocaleDateString()}</small>`).join(" | ");}
+    function loadWeekly(){tabsContainer.innerHTML="";contentContainer.innerHTML="";sortedWeeks.forEach((ws,idx)=>{const d=new Date(ws);const label=`Week of ${d.toLocaleDateString()}`;const b=document.createElement('button');b.textContent=label;b.style.margin="2px";b.style.padding="5px 10px";b.style.border="1px solid #333";b.style.borderRadius="5px";b.style.background=idx===0?"#4caf50":"#f1f1f1";b.style.color=idx===0?"white":"black";b.addEventListener('click',()=>{Array.from(tabsContainer.children).forEach(x=>{x.style.background="#f1f1f1";x.style.color="black";});b.style.background="#4caf50";b.style.color="white";renderWeek(ws);});tabsContainer.appendChild(b);if(idx===0)renderWeek(ws);});}
+    function loadMonthly(){tabsContainer.innerHTML="";contentContainer.innerHTML="";sortedMonths.forEach((mk,idx)=>{const [y,m]=mk.split("-");const label=`${new Date(y,m-1).toLocaleString('default',{month:'long'})} ${y}`;const b=document.createElement('button');b.textContent=label;b.style.margin="2px";b.style.padding="5px 10px";b.style.border="1px solid #333";b.style.borderRadius="5px";b.style.background=idx===0?"#4caf50":"#f1f1f1";b.style.color=idx===0?"white":"black";b.addEventListener('click',()=>{Array.from(tabsContainer.children).forEach(x=>{x.style.background="#f1f1f1";x.style.color="black";});b.style.background="#4caf50";b.style.color="white";renderMonth(mk);});tabsContainer.appendChild(b);if(idx===0)renderMonth(mk);});}
+    weeklyBtn.addEventListener('click',()=>loadWeekly());
+    monthlyBtn.addEventListener('click',()=>loadMonthly());
+    loadWeekly();
+    garden.appendChild(tabsContainer);garden.appendChild(contentContainer);
+    chatBox.appendChild(garden);
+    chatBox.scrollTop=chatBox.scrollHeight;
+  }catch{appendMessage("⚠️ Could not load Mood Garden","bot");}
+});
+</script>
+</body>
+</html>
