@@ -174,6 +174,7 @@ const translations = {
 };
 
 let currentLang = 'en';
+let voiceMode = false;
 
 const appTitle = document.getElementById('appTitle');
 const languageToggleBtn = document.getElementById('languageToggleBtn');
@@ -240,7 +241,8 @@ sendMessageBtn.addEventListener('click', async () => {
     });
     const data = await res.json();
     appendMessage(data.reply, 'bot');
-    speakText(data.reply); // 🔊 Auto speak first time
+    if (voiceMode) speakText(data.reply); // ✅ only speak if microphone was used
+    voiceMode = false;
   } catch {
     appendMessage("⚠️ AI is offline", 'bot');
   }
@@ -258,6 +260,7 @@ speakBtn.addEventListener('click', () => {
   recog.onresult = e => {
     const transcript = e.results[0][0].transcript;
     userInput.value = transcript;
+    voiceMode = true; // ✅ mark this came from microphone
     sendMessageBtn.click();
   };
 });
