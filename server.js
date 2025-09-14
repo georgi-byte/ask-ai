@@ -18,7 +18,7 @@ if (!OPENAI_API_KEY) {
   console.log("✅ OPENAI_API_KEY is set");
 }
 
-// Helper functions
+// Helpers
 async function readJSON(file, fallback) {
   try {
     const raw = await fs.readFile(file, 'utf8');
@@ -31,19 +31,40 @@ async function writeJSON(file, data) {
   await fs.writeFile(file, JSON.stringify(data, null, 2));
 }
 
-// === Chat Endpoint ===
+// === AI Chat ===
 app.post('/api/chat', async (req, res) => {
-  const { message } = req.body;
+  const { message, language } = req.body;
   try {
     const memory = await readJSON('memory.json', []);
     const recent = memory.slice(-30);
 
+    const today = new Date();
+    const decayed = recent.map(m => {
+      const daysAgo = Math.floor((today - new Date(m.timestamp)) / (1000*60*60*24));
+      if (daysAgo >= 7) return null;
+      if (daysAgo >= 3) {
+        return {
+          user: `(faded memory from ${daysAgo} days ago) ${m.user}`,
+          bot: m.bot
+        };
+      }
+      return m;
+    }).filter(Boolean);
+
+    const languageMap = {
+      en: "Respond in English.",
+      bg: "Отговаряй на български.",
+      de: "Antworte auf Deutsch."
+    };
+
+    const languageInstruction = languageMap[language] || languageMap.en;
+
     const messages = [
       {
         role: "system",
-        content: "You are a helpful AI assistant. Always format your answers clearly with:\n- bullet points\n- numbered steps\n- short paragraphs\nMake answers easy to read and well structured."
+        content: `You are a helpful AI assistant. ${languageInstruction} Always format answers clearly using bullet points, numbered steps, or short paragraphs for easy reading.`
       },
-      ...recent.flatMap(m => [
+      ...decayed.flatMap(m => [
         { role: "user", content: m.user },
         { role: "assistant", content: m.bot }
       ]),
@@ -59,7 +80,7 @@ app.post('/api/chat', async (req, res) => {
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
         messages,
-        max_tokens: 400,
+        max_tokens: 300,
         temperature: 0.7
       })
     });
@@ -71,8 +92,8 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "I'm here to help!";
-    
+    const reply = data.choices?.[0]?.message?.content || "I'm here with you ❤️";
+
     memory.push({ user: message, bot: reply, timestamp: new Date().toISOString() });
     await writeJSON('memory.json', memory);
 
