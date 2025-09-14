@@ -30,32 +30,19 @@ async function writeJSON(file, data) {
   await fs.writeFile(file, JSON.stringify(data, null, 2));
 }
 
-// === Chat ===
+// === General Chat ===
 app.post('/api/chat', async (req, res) => {
-  const { message, language } = req.body;
+  const { message } = req.body;
   try {
-    const memory = await readJSON('memory.json', []);
-    const recent = memory.slice(-30);
-    const today = new Date();
-
-    const decayed = recent.map(m => {
-      const daysAgo = Math.floor((today - new Date(m.timestamp)) / (1000 * 60 * 60 * 24));
-      if (daysAgo >= 7) return null;
-      if (daysAgo >= 3) {
-        return {
-          user: `(faded memory from ${daysAgo} days ago) ${m.user}`,
-          bot: m.bot
-        };
-      }
-      return m;
-    }).filter(Boolean);
+    const history = await readJSON('memory.json', []);
+    const recent = history.slice(-10);
 
     const messages = [
       {
         role: "system",
-        content: "You are a caring mental health companion. Remember the user’s past feelings and continue conversations naturally. If a memory is marked as '(faded memory)', treat it as something the user mentioned long ago."
+        content: "You are a helpful and knowledgeable AI assistant. Answer questions clearly and helpfully on any topic the user asks about."
       },
-      ...decayed.flatMap(m => [
+      ...recent.flatMap(m => [
         { role: "user", content: m.user },
         { role: "assistant", content: m.bot }
       ]),
@@ -71,7 +58,7 @@ app.post('/api/chat', async (req, res) => {
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
         messages,
-        max_tokens: 150,
+        max_tokens: 300,
         temperature: 0.7
       })
     });
@@ -83,10 +70,10 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "I'm here with you ❤️";
+    const reply = data.choices?.[0]?.message?.content || "I'm here to help!";
 
-    memory.push({ user: message, bot: reply, timestamp: new Date().toISOString() });
-    await writeJSON('memory.json', memory);
+    history.push({ user: message, bot: reply, timestamp: new Date().toISOString() });
+    await writeJSON('memory.json', history);
 
     res.json({ reply });
   } catch (error) {
@@ -95,92 +82,31 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// === Mood logging (user specific) ===
-app.post('/api/mood', async (req, res) => {
-  const { mood, language, userId } = req.body;
+// === Voice to AI ===
+app.post('/api/voice', async (req, res) => {
+  const { transcript } = req.body;
   try {
-    const moods = await readJSON('moods.json', []);
-    moods.push({
-      userId,
-      mood,
-      language: language || 'manual',
-      timestamp: new Date().toISOString()
-    });
-    await writeJSON('moods.json', moods);
-
-    const heartbeats = {
-      en: ["Keep shining! 🌟", "You're doing great ❤️", "Step by step 🌱"],
-      bg: ["Продължавай да сияеш! 🌟", "Справяш се страхотно ❤️", "Стъпка по стъпка 🌱"]
-    };
-    const pool = heartbeats[language || 'en'] || heartbeats['en'];
-    const heartbeat = pool[Math.floor(Math.random() * pool.length)];
-
-    res.json({ success: true, heartbeat });
-  } catch (error) {
-    console.error('Log mood error:', error);
-    res.status(500).json({ success: false });
-  }
-});
-
-// === Mood list (only this user) ===
-app.get('/api/moods', async (req, res) => {
-  try {
-    const userId = req.query.userId;
-    const moods = await readJSON('moods.json', []);
-    const userMoods = moods.filter(m => m.userId === userId);
-    res.json({ moods: userMoods });
-  } catch (error) {
-    console.error('View moods error:', error);
-    res.status(500).json({ moods: [] });
-  }
-});
-
-// === Voice mood detection ===
-app.post('/api/mood-voice', async (req, res) => {
-  const { transcript, userId } = req.body;
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
+        model: "gpt-3.5-turbo",
         messages: [
-          {
-            role: 'system',
-            content: `You are a mood detector. Always reply with ONLY ONE word from this list:
-happy, sad, angry, anxious, calm, stressed, grateful, inspired, neutral.`
-          },
-          { role: 'user', content: transcript }
+          { role: "system", content: "You are a helpful AI assistant." },
+          { role: "user", content: transcript }
         ],
-        max_tokens: 5,
-        temperature: 0
+        max_tokens: 250
       })
     });
-
     const data = await response.json();
-    let detectedMood = (data.choices?.[0]?.message?.content || "neutral").trim().toLowerCase();
-    detectedMood = detectedMood.split(/\s+/)[0];
-
-    const allowed = ["happy","sad","angry","anxious","calm","stressed","grateful","inspired","neutral"];
-    if (!allowed.includes(detectedMood)) detectedMood = "neutral";
-
-    const moods = await readJSON('moods.json', []);
-    moods.push({
-      userId,
-      mood: detectedMood,
-      language: 'voice',
-      transcript,
-      timestamp: new Date().toISOString()
-    });
-    await writeJSON('moods.json', moods);
-
-    res.json({ success: true, mood: detectedMood });
+    const reply = data.choices?.[0]?.message?.content || "I’m here to help.";
+    res.json({ reply });
   } catch (error) {
-    console.error('Echo Journal error:', error);
-    res.status(500).json({ success: false, mood: "error" });
+    console.error("Voice error:", error);
+    res.status(500).json({ reply: "Error" });
   }
 });
 

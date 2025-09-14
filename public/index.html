@@ -1,165 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Mental Health Companion</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Helper</title>
   <style>
-    body { font-family: Arial, sans-serif; background: linear-gradient(to bottom, #e0f7fa, #80deea); display:flex; justify-content:center; align-items:center; height:100vh; margin:0; color:#333; overflow:hidden; }
-    .container { background: rgba(255,255,255,0.9); padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); width:420px; text-align:center; }
-    h1{ color:#00796b; }
-    .chat-box{ border:1px solid #ccc; height:300px; overflow-y:auto; margin:10px 0; padding:10px; background:#f9f9f9; border-radius:5px; }
-    .message{ margin:5px 10px; padding:8px; border-radius:5px; max-width:70%; }
-    .user{ background:#e0f7fa; margin-left:auto; text-align:right; }
-    .bot{ background:#fff; margin-right:auto; text-align:left; }
-    input[type="text"]{ width:70%; padding:8px; margin:5px; border:1px solid #ccc; border-radius:5px; }
-    button{ padding:8px 15px; margin:5px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; }
-    #sendMessageBtn{ background:#26a69a; color:white; }
-    #logMoodBtn{ background:#66bb6a; color:white; }
-    #mindfulnessBtn{ background:#ec407a; color:white; }
-    #languageToggleBtn{ background:#5c6bc0; color:white; }
-    #oracleBtn{ background:#ff9800; color:white; }
-    #voiceMoodBtn{ background:#8e24aa; color:white; }
-    #gardenBtn{ background:#4caf50; color:white; }
-    .doneBtn{ margin-top:5px; padding:5px 10px; border:none; border-radius:5px; background:#4caf50; color:white; cursor:pointer; }
+    body { font-family: Arial, sans-serif; background:#f0f2f5; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
+    .container { background:#fff; padding:25px; border-radius:15px; box-shadow:0 0 15px rgba(0,0,0,0.1); width:420px; text-align:center; display:flex; flex-direction:column; }
+    h1{ color:#1e88e5; margin-bottom:10px; }
+    .chat-box{ border:1px solid #ddd; height:300px; overflow-y:auto; margin:15px 0; padding:10px; background:#fafafa; border-radius:8px; text-align:left; }
+    .message{ margin:5px 10px; padding:8px; border-radius:5px; max-width:80%; }
+    .user{ background:#e3f2fd; margin-left:auto; }
+    .bot{ background:#e8eaf6; margin-right:auto; }
+    input[type="text"]{ width:70%; padding:10px; border:1px solid #ccc; border-radius:6px; }
+    button{ padding:10px 15px; margin:5px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; background:#1e88e5; color:white; transition:0.2s; }
+    button:hover{ background:#1565c0; }
+    #exerciseBtn{ background:#43a047; }
+    #talkBtn{ background:#8e24aa; }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1 id="appTitle">AI Mental Health Companion</h1>
-  <button id="languageToggleBtn">Switch to Bulgarian</button>
+  <h1>AI Helper</h1>
   <div class="chat-box" id="chatBox"></div>
-  <input type="text" id="userInput" placeholder="How are you feeling?">
-  <button id="sendMessageBtn">Send</button>
-  <input type="text" id="moodInput" placeholder="Log your mood (e.g., Happy)">
-  <button id="logMoodBtn">Log Mood</button>
-  <button id="mindfulnessBtn">Get Exercise</button>
-  <button id="oracleBtn">✨ Daily Oracle</button>
-  <button id="voiceMoodBtn">🎤 Echo Journal</button>
-  <button id="gardenBtn">🌱 Mood Garden</button>
+  <div>
+    <input type="text" id="userInput" placeholder="Ask anything..." />
+    <button id="sendBtn">Send</button>
+  </div>
+  <button id="exerciseBtn">🧘 Take a Quick Break</button>
+  <button id="talkBtn">🎤 Talk to AI</button>
 </div>
 
 <script>
-let userId = localStorage.getItem('userId');
-if (!userId) {
-  userId = Math.random().toString(36).substring(2, 10);
-  localStorage.setItem('userId', userId);
-}
-
-const translations = {
-  en:{appTitle:"AI Mental Health Companion", languageToggle:"Switch to Bulgarian", userInputPlaceholder:"How are you feeling?", sendMessageBtn:"Send", moodInputPlaceholder:"Log your mood (e.g., Happy)", logMoodBtn:"Log Mood", mindfulnessBtn:"Get Exercise", doneMessage:"Nice job! Keep shining! 😊", mindfulnessExercises:["Take 5 deep breaths 🌬️","Listen to calming music 🎶","Write one thing you’re grateful for ✍️","Quick stretch: reach up 10 sec 🙆","Close eyes & imagine peaceful place 🌳"]},
-  bg:{appTitle:"AI Компаньон за Психично Здраве", languageToggle:"Превключи на Английски", userInputPlaceholder:"Как се чувстваш?", sendMessageBtn:"Изпрати", moodInputPlaceholder:"Запиши настроението си (напр. Щастлив)", logMoodBtn:"Запиши Настроение", mindfulnessBtn:"Вземи Упражнение", doneMessage:"Браво! Продължавай да сияеш! 😊", mindfulnessExercises:["Поеми 5 дълбоки вдишвания 🌬️","Слушай успокояваща музика 🎶","Запиши едно нещо, за което си благодарен ✍️","Бързо разтягане: протегни се 10 сек 🙆","Затвори очи и си представи спокойно място 🌳"]}
-};
-
-let currentLanguage='en';
 const chatBox=document.getElementById('chatBox');
 const userInput=document.getElementById('userInput');
-const sendMessageBtn=document.getElementById('sendMessageBtn');
-const moodInput=document.getElementById('moodInput');
-const logMoodBtn=document.getElementById('logMoodBtn');
-const mindfulnessBtn=document.getElementById('mindfulnessBtn');
-const languageToggleBtn=document.getElementById('languageToggleBtn');
-const appTitle=document.getElementById('appTitle');
-const oracleBtn=document.getElementById('oracleBtn');
-const voiceMoodBtn=document.getElementById('voiceMoodBtn');
-const gardenBtn=document.getElementById('gardenBtn');
+const sendBtn=document.getElementById('sendBtn');
+const talkBtn=document.getElementById('talkBtn');
+const exerciseBtn=document.getElementById('exerciseBtn');
 
-const moodEmojis={happy:'😊',sad:'😢',angry:'😣',stressed:'😓',calm:'😌',excited:'🎉',anxious:'😰',content:'🙂',grateful:'🙏',inspired:'✨',peaceful:'🌿',reflective:'🤔',energetic:'⚡',optimistic:'🌞',neutral:'😶'};
+function appendMessage(text,type='bot'){const div=document.createElement('div');div.className=`message ${type}`;div.innerText=text;chatBox.appendChild(div);chatBox.scrollTop=chatBox.scrollHeight;}
 
-function updateLanguage(){
-  const lang=translations[currentLanguage];
-  appTitle.textContent=lang.appTitle;
-  languageToggleBtn.textContent=lang.languageToggle;
-  userInput.placeholder=lang.userInputPlaceholder;
-  sendMessageBtn.textContent=lang.sendMessageBtn;
-  moodInput.placeholder=lang.moodInputPlaceholder;
-  logMoodBtn.textContent=lang.logMoodBtn;
-  mindfulnessBtn.textContent=lang.mindfulnessBtn;
-}
-languageToggleBtn.addEventListener('click',()=>{currentLanguage=currentLanguage==='en'?'bg':'en';updateLanguage();});
-updateLanguage();
-
-function appendMessage(text,type='bot'){const div=document.createElement('div');div.className=`message ${type}`;div.innerHTML=text;chatBox.appendChild(div);chatBox.scrollTop=chatBox.scrollHeight;}
-
-// === Send message ===
-sendMessageBtn.addEventListener('click',async()=>{
+sendBtn.addEventListener('click',async()=>{
   const msg=userInput.value.trim();
   if(!msg)return;
   appendMessage(msg,'user');
   userInput.value='';
   try{
-    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,language:currentLanguage})});
+    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
     const data=await res.json();
     appendMessage(data.reply,'bot');
   }catch{appendMessage("⚠️ AI is offline",'bot');}
 });
-userInput.addEventListener('keypress',(e)=>{if(e.key==='Enter'){e.preventDefault();sendMessageBtn.click();}});
+userInput.addEventListener('keypress',e=>{if(e.key==='Enter'){e.preventDefault();sendBtn.click();}});
 
-// === Log mood ===
-logMoodBtn.addEventListener('click',async()=>{
-  const mood=moodInput.value.trim();
-  if(!mood)return;
-  try{
-    const res=await fetch('/api/mood',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mood,language:currentLanguage,userId})});
-    const data=await res.json();
-    appendMessage(`Mood logged: ${moodEmojis[mood.toLowerCase()]||'😶'} ${mood} — ${data.heartbeat}`,'bot');
-    moodInput.value='';
-  }catch{appendMessage("⚠️ Could not log mood",'bot');}
+exerciseBtn.addEventListener('click',()=>{
+  const ideas=["Stretch for 30 seconds 🌿","Drink some water 💧","Take 5 deep breaths 🌬️","Walk around for 1 min 🚶","Look away from screen for 30 sec 👀"];
+  const idea=ideas[Math.floor(Math.random()*ideas.length)];
+  appendMessage("💡 "+idea,'bot');
 });
 
-// === Mindfulness exercises ===
-mindfulnessBtn.addEventListener('click',()=>{
-  const exercises=translations[currentLanguage].mindfulnessExercises;
-  const exercise=exercises[Math.floor(Math.random()*exercises.length)];
-  const robotDiv=document.createElement('div');
-  robotDiv.className='message bot';
-  robotDiv.innerHTML=`🤖 ${exercise} <button class="doneBtn">✅ Done</button>`;
-  chatBox.appendChild(robotDiv);
-  const doneBtn=robotDiv.querySelector('.doneBtn');
-  doneBtn.addEventListener('click',()=>{robotDiv.innerHTML=`✅ Completed! 🌟 ${exercise}`;});
-});
-
-// === Voice mood ===
-voiceMoodBtn.addEventListener('click',async()=>{
-  if(!window.SpeechRecognition && !window.webkitSpeechRecognition){ appendMessage("⚠️ Browser does not support voice input",'bot'); return; }
+talkBtn.addEventListener('click',()=>{
+  if(!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)){appendMessage("⚠️ Your browser does not support voice input",'bot');return;}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const recognition=new SR();
-  recognition.lang=currentLanguage==='en'?'en-US':'bg-BG';
+  recognition.lang='en-US';
   recognition.start();
   appendMessage("🎤 Listening...","bot");
   recognition.onresult=async(e)=>{
     const transcript=e.results[0][0].transcript;
-    try{
-      const res=await fetch('/api/mood-voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript,userId})});
-      const data=await res.json();
-      appendMessage(`Detected mood: ${moodEmojis[data.mood]||'😶'} ${data.mood}`,'bot');
-    }catch{appendMessage("⚠️ Could not detect mood",'bot');}
-  };
-});
-
-// === Mood Garden ===
-gardenBtn.addEventListener('click',async()=>{
-  try{
-    const res=await fetch(`/api/moods?userId=${userId}`);
+    appendMessage("🗣️ "+transcript,'user');
+    const res=await fetch('/api/voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript})});
     const data=await res.json();
-    if(!data.moods.length){appendMessage("🌱 No moods yet","bot");return;}
-    const weeks={},months={};
-    function getWeekStart(d){const date=new Date(d);const day=date.getDay();const diff=date.getDate()-day+(day===0?-6:1);const monday=new Date(date.setDate(diff));monday.setHours(0,0,0,0);return monday.toISOString().split("T")[0];}
-    function getMonthKey(d){const date=new Date(d);return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;}
-    data.moods.forEach(m=>{if(!m.timestamp)return;const ws=getWeekStart(m.timestamp);if(!weeks[ws])weeks[ws]=[];weeks[ws].push(m);const mk=getMonthKey(m.timestamp);if(!months[mk])months[mk]=[];months[mk].push(m);});
-    const sortedWeeks=Object.keys(weeks).sort((a,b)=>new Date(b)-new Date(a));
-    const sortedMonths=Object.keys(months).sort((a,b)=>new Date(b)-new Date(a));
-    const garden=document.createElement('div');garden.style.padding="10px";garden.style.border="1px solid #ccc";garden.style.marginTop="10px";garden.style.background="#e8f5e9";garden.style.borderRadius="10px";
-    garden.innerHTML="<b>🌱 Your Mood Garden:</b>";
-    const tabs=document.createElement('div');
-    const content=document.createElement('div');content.style.marginTop="10px";
-    function renderWeek(ws){content.innerHTML=weeks[ws].map(m=>`${moodEmojis[m.mood]||'😶'} <small>${new Date(m.timestamp).toLocaleDateString()}</small>`).join(" | ");}
-    function renderMonth(mk){content.innerHTML=months[mk].map(m=>`${moodEmojis[m.mood]||'😶'} <small>${new Date(m.timestamp).toLocaleDateString()}</small>`).join(" | ");}
-    sortedWeeks.forEach((ws,i)=>{const b=document.createElement('button');b.textContent=`Week of ${new Date(ws).toLocaleDateString()}`;b.onclick=()=>renderWeek(ws);tabs.appendChild(b);if(i===0)renderWeek(ws);});
-    sortedMonths.forEach((mk)=>{const b=document.createElement('button');b.textContent=mk;b.onclick=()=>renderMonth(mk);tabs.appendChild(b);});
-    garden.appendChild(tabs);garden.appendChild(content);
-    chatBox.appendChild(garden);chatBox.scrollTop=chatBox.scrollHeight;
-  }catch{appendMessage("⚠️ Could not load Mood Garden","bot");}
+    appendMessage(data.reply,'bot');
+  };
 });
 </script>
 </body>
