@@ -1,9 +1,66 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const fs = require('fs').promises;
+const fetch = require('node-fetch');
+
+const app = express();
+const port = 3000;
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static("public"));
+
+// ========== CHECK API KEYS ==========
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
+
+if (!OPENAI_API_KEY) console.error("❌ OPENAI_API_KEY is NOT set");
+else console.log("✅ OPENAI_API_KEY is set");
+
+if (!TAVILY_API_KEY) console.error("⚠️ TAVILY_API_KEY is NOT set (web search won't work)");
+else console.log("✅ TAVILY_API_KEY is set");
+
+// ========== HELPERS ==========
+async function readJSON(file, fallback) {
+  try {
+    const raw = await fs.readFile(file, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+async function writeJSON(file, data) {
+  await fs.writeFile(file, JSON.stringify(data, null, 2));
+}
+
+// ========== WEB SEARCH ==========
+async function webSearch(query) {
+  try {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${TAVILY_API_KEY}`
+      },
+      body: JSON.stringify({ query, max_results: 3 })
+    });
+    const data = await res.json();
+    return data.results?.map(r => r.content).join("\n\n") || "";
+  } catch (err) {
+    console.error("Web search error:", err);
+    return "";
+  }
+}
+
+// ========== MAIN CHAT ENDPOINT ==========
 app.post('/api/chat', async (req, res) => {
-  const { message, language, city, timezone } = req.body;
+  const { message, language, timezone } = req.body;
   try {
     const memory = await readJSON('memory.json', []);
     const recent = memory.slice(-30);
 
+    // Decay memory over time
     const today = new Date();
     const decayed = recent.map(m => {
       const daysAgo = Math.floor((today - new Date(m.timestamp)) / (1000 * 60 * 60 * 24));
@@ -17,9 +74,10 @@ app.post('/api/chat', async (req, res) => {
       return m;
     }).filter(Boolean);
 
-    const currentDate = new Date().toLocaleString("en-US", { timeZone: timezone || "UTC" });
-
+    // 🌍 Inject date/time + optional web search
+    const currentDate = new Date().toLocaleString('en-US', { timeZone: timezone || 'UTC' });
     let webResults = "";
+
     if (/\b(who|what|when|where|why|how|latest|news|time|date)\b/i.test(message)) {
       webResults = await webSearch(message);
     }
@@ -33,9 +91,9 @@ app.post('/api/chat', async (req, res) => {
     const messages = [
       {
         role: "system",
-        content: `You are a helpful and up-to-date AI assistant.
-User is in ${city || "an unknown location"} (timezone: ${timezone || "UTC"}).
-Local date/time: ${currentDate}.
+        content: `You are a helpful and up-to-date AI assistant. 
+The current date/time is ${currentDate}.
+User's timezone: ${timezone || "unknown"}.
 Here are recent search results (if any):\n${webResults}
 ${languageMap[language] || languageMap.en}`
       },
@@ -60,6 +118,12 @@ ${languageMap[language] || languageMap.en}`
       })
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenAI API Error:", response.status, errorText);
+      return res.status(500).json({ error: "OpenAI API call failed" });
+    }
+
     const data = await response.json();
     const reply = data.choices?.[0]?.message?.content || "I'm here with you ❤️";
 
@@ -71,4 +135,9 @@ ${languageMap[language] || languageMap.en}`
     console.error("Chat error:", error);
     res.status(500).json({ reply: "Error connecting to AI." });
   }
+});
+
+// ========== START SERVER ==========
+app.listen(port, () => {
+  console.log(`🚀 Server running at http://localhost:${port}`);
 });
