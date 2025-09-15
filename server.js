@@ -86,4 +86,6 @@ badges.forEach(b => { user.badges.push(b); });
 
 // Built-in shop items definition
 const SHOP = [
-app.listen(port, () => console.log(`🚀 Server running at http://localhost:${port}`));
+app.listen(port, () => {
+  console.log(`🚀 Server running at http://localhost:${port}`);
+});
