@@ -3,12 +3,471 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Companion — Gamified AI (Single Page)</title>
+<title>Ask AI — Companion (Gamified)</title>
 <style>
-:root{--bg:#f0f4f8;--card:#fff;--accent:#3498db;--muted:#666}
-body{font-family:Inter,system-ui,Arial,Helvetica,sans-serif;margin:0;background:var(--bg);color:#111}
-.container{max-width:1200px;margin:18px auto;display:grid;grid-template-columns:1fr 360px;gap:16px;padding:12px}
-.card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 8px 30px rgba(12,20,30,0.06)}
+  :root{--bg:#f0f4f8;--card:#fff;--accent:#3498db;--muted:#666}
+  body{font-family:Inter,system-ui,Arial,Helvetica,sans-serif;margin:0;background:var(--bg);color:#111}
+  .wrap{max-width:1100px;margin:18px auto;display:grid;grid-template-columns:1fr 340px;gap:16px;padding:12px}
+  .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 8px 30px rgba(12,20,30,0.06)}
+  .chat-area{display:flex;flex-direction:column;gap:10px}
+  .header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .profile{display:flex;gap:12px;align-items:center}
+  .pill{background:#f1f5f9;padding:8px 12px;border-radius:999px}
+  .chatbox{height:520px;overflow:auto;border-radius:10px;padding:12px;background:#fafafa;border:1px solid #e6eef6}
+  .message{max-width:78%;padding:10px;border-radius:10px;margin:8px 0;word-break:break-word}
+  .user{background:#d7f3ff;margin-left:auto}
+  .bot{background:#fff;border:1px solid #e6eef6;margin-right:auto}
+  .row{display:flex;gap:8px}
+  input[type="text"]{flex:1;padding:10px;border-radius:8px;border:1px solid #ccc}
+  button{padding:10px 12px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer}
+  .panel{display:flex;flex-direction:column;gap:8px}
+  .shop-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:#fff}
+  .small{font-size:13px;color:#666}
+  .mini{font-size:12px;padding:6px 8px}
+  .disabled{opacity:0.45;pointer-events:none}
+  /* minor responsive */
+  @media (max-width:980px){ .wrap{grid-template-columns:1fr; padding:10px} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- Main chat column -->
+    <div class="card chat-area">
+      <div class="header">
+        <div>
+          <h2 style="margin:0">Ask AI — Companion</h2>
+          <div class="small">Change personality, play mini-games, and collect rewards ✨</div>
+        </div>
+        <div class="profile">
+          <div class="pill">💰 <span id="points">0</span> pts</div>
+          <div class="pill">🔥 Streak <span id="streak">0</span></div>
+          <div class="pill">⭐ Lv <span id="level">1</span></div>
+          <button id="toggleDark" class="mini">🌓</button>
+        </div>
+      </div>
 
+      <div class="chatbox" id="chatBox" aria-live="polite"></div>
 
-/* Left: chat + cont
+      <div class="row">
+        <input type="text" id="userInput" placeholder="Ask me anything..." />
+        <button id="sendBtn">Send</button>
+        <button id="voiceBtn" title="Use speech (if supported)">🎤</button>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+        <input id="username" placeholder="Your name for leaderboard" style="padding:8px;border-radius:8px;border:1px solid #ccc" />
+        <button id="submitScoreBtn" class="mini">Submit Score</button>
+        <button id="refreshLeaderboard" class="mini">Refresh Top 10</button>
+        <div class="small" style="margin-left:auto">Memory window: <span id="memoryWindow">5</span></div>
+      </div>
+    </div>
+
+    <!-- Right column: shop, daily quiz, mini-games, leaderboard -->
+    <div class="card panel">
+      <div>
+        <h3 style="margin:0 0 6px 0">Shop</h3>
+        <div class="small">Spend points to unlock cosmetic & utility items.</div>
+      </div>
+
+      <div id="shopList"></div>
+
+      <div style="margin-top:10px">
+        <h3 style="margin:0 0 6px 0">Daily Quiz</h3>
+        <div id="dailyArea" class="small"></div>
+      </div>
+
+      <div style="margin-top:10px">
+        <h3 style="margin:0 0 6px 0">Mini-Games</h3>
+        <div>
+          <button id="riddleBtn" class="mini">Riddle Duel (+25 pts)</button>
+          <button id="storyBtn" class="mini">Collaborative Story (+30 pts)</button>
+        </div>
+        <div id="gameArea" class="small" style="margin-top:6px"></div>
+      </div>
+
+      <div style="margin-top:10px">
+        <h3 style="margin:0 0 6px 0">Global Leaderboard (Top 10)</h3>
+        <div id="leaderboardArea" class="small">Loading...</div>
+      </div>
+
+      <div style="margin-top:10px">
+        <h3 style="margin:0 0 6px 0">Achievements</h3>
+        <div id="achievements" class="small">No achievements yet.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* -------------------------
+   Local state & persistence
+   ------------------------- */
+const DEFAULTS = {
+  points: 0,
+  streak: 0,
+  level: 1,
+  lastChatDate: null,
+  memoryWindow: 5,
+  items: [], // purchased shop item ids
+  chats: []  // store chat messages up to memoryWindow
+};
+
+function loadState() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('companion_state') || "{}");
+    return Object.assign({}, DEFAULTS, raw);
+  } catch {
+    return Object.assign({}, DEFAULTS);
+  }
+}
+function saveState() {
+  localStorage.setItem('companion_state', JSON.stringify(state));
+}
+
+let state = loadState();
+
+/* --------- UI nodes ---------- */
+const chatBox = document.getElementById('chatBox');
+const sendBtn = document.getElementById('sendBtn');
+const userInput = document.getElementById('userInput');
+const pointsEl = document.getElementById('points');
+const streakEl = document.getElementById('streak');
+const levelEl = document.getElementById('level');
+const memoryWindowEl = document.getElementById('memoryWindow');
+const shopList = document.getElementById('shopList');
+const dailyArea = document.getElementById('dailyArea');
+const riddleBtn = document.getElementById('riddleBtn');
+const storyBtn = document.getElementById('storyBtn');
+const gameArea = document.getElementById('gameArea');
+const leaderboardArea = document.getElementById('leaderboardArea');
+const achievementsEl = document.getElementById('achievements');
+const usernameInput = document.getElementById('username');
+const submitScoreBtn = document.getElementById('submitScoreBtn');
+const refreshLeaderboard = document.getElementById('refreshLeaderboard');
+const toggleDark = document.getElementById('toggleDark');
+const voiceBtn = document.getElementById('voiceBtn');
+
+/* ---------- Helpers ---------- */
+function updateProfileUI(){
+  pointsEl.textContent = state.points;
+  streakEl.textContent = state.streak;
+  levelEl.textContent = state.level;
+  memoryWindowEl.textContent = state.memoryWindow;
+  saveState();
+}
+function appendMessage(text,type='bot'){
+  const d = document.createElement('div');
+  d.className = `message ${type}`;
+  d.innerHTML = text.replace(/\n/g,'<br>');
+  chatBox.appendChild(d);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  // store in chat history (for memory)
+  state.chats = state.chats || [];
+  state.chats.push({role:type, text, time: new Date().toISOString()});
+  // trim to memoryWindow
+  const keep = Math.max(1, state.memoryWindow);
+  if (state.chats.length > keep) state.chats = state.chats.slice(-keep);
+  saveState();
+}
+function todayISODate(){ return (new Date()).toDateString(); }
+
+/* ---------- Shop configuration ---------- */
+const SHOP = [
+  { id:'bubble_galactic', name:'Chat Bubble Skins (Galactic)', cost:50, desc:'Stars pulse during AI replies. Cosmetic.' },
+  { id:'avatar_pirate', name:'Avatar Outfits (Pirate)', cost:75, desc:'Fun hat for the companion. Cosmetic.' },
+  { id:'bg_aquarium', name:'Dynamic Background (Aquarium)', cost:100, desc:'Interactive background reacts to chat mood.' },
+  { id:'memory_booster', name:'Memory Booster (session)', cost:200, desc:'Temporarily increase memory window by +10 for this browser.' }
+];
+
+function renderShop(){
+  shopList.innerHTML = '';
+  SHOP.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'shop-item';
+    const owned = state.items.includes(item.id);
+    div.innerHTML = `<div>
+      <strong>${item.name}</strong><div class="small">${item.desc}</div>
+    </div>`;
+    const right = document.createElement('div');
+    right.innerHTML = `<div class="small">${item.cost} pts</div>`;
+    const btn = document.createElement('button');
+    btn.className = 'mini';
+    btn.textContent = owned ? 'Owned' : 'Buy';
+    if (owned) btn.disabled = true;
+    btn.onclick = () => {
+      if (state.points < item.cost) { alert("Not enough points"); return; }
+      state.points -= item.cost;
+      state.items.push(item.id);
+      // apply memory booster effect immediately for session
+      if (item.id === 'memory_booster') {
+        state.memoryWindow = state.memoryWindow + 10;
+        alert('Memory Booster activated: memory window increased for this browser session.');
+      } else {
+        alert(`Purchased ${item.name}`);
+      }
+      updateProfileUI();
+      renderShop();
+    };
+    right.appendChild(btn);
+    div.appendChild(right);
+    shopList.appendChild(div);
+  });
+}
+
+/* ---------- Daily Quiz ---------- */
+const QUIZZES = [
+  {q:"What's 2 + 2?", opts:["3","4","5"], a:"4"},
+  {q:"Capital of Germany?", opts:["Berlin","Paris","Rome"], a:"Berlin"},
+  {q:"Sun rises from the?", opts:["West","East","North"], a:"East"}
+];
+function renderDaily(){
+  const lastQuiz = localStorage.getItem('companion_last_quiz');
+  const today = todayISODate();
+  if (lastQuiz === today) {
+    dailyArea.textContent = "✅ You've already done today's quiz.";
+    return;
+  }
+  const q = QUIZZES[Math.floor(Math.random()*QUIZZES.length)];
+  dailyArea.innerHTML = `<div>${q.q}</div>` + q.opts.map(opt=>`<button class="mini" data-opt="${opt}">${opt}</button>`).join(' ');
+  dailyArea.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const picked = btn.getAttribute('data-opt');
+      if (picked === q.a) {
+        state.points += 50; alert('Correct! +50 pts');
+      } else {
+        alert('Wrong. Try again tomorrow.');
+      }
+      localStorage.setItem('companion_last_quiz', today);
+      updateProfileUI();
+      renderDaily();
+    });
+  });
+}
+
+/* -------- Achievements -------- */
+function checkAchievements(){
+  const ach = [];
+  if ((state.achievements||[]).includes('100_pts')) {
+    // already have
+  } else if (state.points >= 100) {
+    (state.achievements = state.achievements||[]).push('100_pts');
+    ach.push('100_pts');
+  }
+  if ((state.achievements||[]).includes('500_pts')) {
+  } else if (state.points >= 500) {
+    (state.achievements = state.achievements||[]).push('500_pts');
+    ach.push('500_pts');
+  }
+  if ((state.achievements||[]).includes('10_chats')) {
+  } else {
+    const chats = (state.chats||[]).filter(c=>c.role === 'user').length;
+    if (chats >= 10) { (state.achievements = state.achievements||[]).push('10_chats'); ach.push('10_chats'); }
+  }
+  if (ach.length) {
+    alert("Achievement unlocked: " + ach.join(', '));
+    saveState();
+  }
+  // render achievements list
+  const list = (state.achievements||[]).map(id=>{
+    if (id==='100_pts') return "💎 100 Points Reached";
+    if (id==='500_pts') return "🏆 500 Points Reached";
+    if (id==='10_chats') return "🗣️ 10 Chats";
+    return id;
+  });
+  achievementsEl.textContent = list.length ? list.join(' • ') : "No achievements yet.";
+}
+
+/* ---------- Mini-games ---------- */
+// Riddle Duel: simple single question wager
+const RIDDLES = [
+  {q:"I speak without a mouth and hear without ears. What am I?", a:"echo"},
+  {q:"What has keys but can't open locks?", a:"piano"},
+  {q:"What runs but never walks?", a:"water"}
+];
+riddleBtn.addEventListener('click', ()=>{
+  const r = RIDDLES[Math.floor(Math.random()*RIDDLES.length)];
+  const guess = prompt(r.q + "\n(enter your answer)").trim().toLowerCase();
+  if (!guess) return;
+  if (guess.includes(r.a)) {
+    state.points += 25;
+    gameArea.textContent = "Correct! +25 pts.";
+  } else {
+    state.points = Math.max(0, state.points - 5);
+    gameArea.textContent = "Wrong! -5 pts.";
+  }
+  updateProfileUI(); checkAchievements();
+});
+
+// Collaborative story: build a short 3-turn story with the AI (simulated or real)
+storyBtn.addEventListener('click', async ()=>{
+  gameArea.textContent = "Starting collaborative story... type the first sentence in the chat input and press Send.";
+  // The UI flow: user writes a sentence, send triggers story mode which will alternate 2 AI lines then finish.
+  startStoryMode();
+});
+
+let storyMode = false;
+async function startStoryMode(){
+  storyMode = true;
+  appendMessage("Let's build a short story together — you start by sending one sentence.", 'bot');
+  // Next three turns: user -> AI -> user -> AI (finish) — implemented via intercept in send handler
+}
+
+/* ---------- Chat send logic ---------- */
+sendBtn.addEventListener('click', sendMessage);
+userInput.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') sendMessage(); });
+
+let storyTurns = 0;
+async function sendMessage(){
+  const text = userInput.value.trim();
+  if (!text) return;
+  appendMessage(text, 'user');
+  userInput.value = '';
+  // update streak / lastChat
+  const last = state.lastChatDate ? new Date(state.lastChatDate) : null;
+  const now = new Date();
+  if (last) {
+    const diffDays = Math.floor((now - last) / (1000*60*60*24));
+    if (diffDays === 1) state.streak = (state.streak || 0) + 1;
+    else if (diffDays > 1) state.streak = 1;
+  } else state.streak = 1;
+  state.lastChatDate = now.toISOString();
+
+  // Build messages for server; include recent chats as memory
+  const memoryMessages = (state.chats || []).map(c => `${c.role === 'user' ? 'User' : 'AI'}: ${c.text}`).join('\n');
+  const payload = { message: text, memory: memoryMessages };
+
+  // If storyMode active, increment storyTurns
+  if (storyMode) storyTurns++;
+
+  // send to /api/chat
+  appendMessage('<i>AI is thinking...</i>', 'bot');
+  try {
+    const res = await fetch('/api/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    // remove last "thinking" (last bot message) — naive remove
+    const nodes = chatBox.querySelectorAll('.bot');
+    if (nodes.length) {
+      const lastBot = nodes[nodes.length-1];
+      if (lastBot && lastBot.innerHTML.includes('AI is thinking')) lastBot.remove();
+    }
+    const reply = data.reply || "Sorry, I couldn't think of a reply.";
+    appendMessage(reply, 'bot');
+
+    // Award points for reply
+    let awarded = 10;
+    // Apply streak multipliers
+    if (state.streak >= 7) awarded *= 5;
+    else if (state.streak >= 3) awarded *= 2;
+    state.points += awarded;
+
+    // story mode handling: after 2 AI responses finish story
+    if (storyMode) {
+      if (storyTurns >= 3) {
+        appendMessage("Story complete! +30 pts bonus.", 'bot');
+        state.points += 30;
+        storyMode = false; storyTurns = 0;
+      } else {
+        appendMessage("Your turn to add the next line.", 'bot');
+      }
+    }
+
+    // level up every 100 points
+    while (state.points >= state.level * 100) {
+      state.level += 1;
+      appendMessage(`⭐ Level up! You reached level ${state.level}`, 'bot');
+    }
+
+    updateProfileUI();
+    checkAchievements();
+  } catch (err) {
+    console.error("chat send error", err);
+    appendMessage("⚠️ AI is offline", 'bot');
+  }
+}
+
+/* ---------- Leaderboard (global) ---------- */
+async function fetchLeaderboard(){
+  leaderboardArea.textContent = "Loading...";
+  try {
+    const res = await fetch('/api/leaderboard');
+    const data = await res.json();
+    const top = data.top || [];
+    if (top.length === 0) leaderboardArea.textContent = "No scores yet — be the first!";
+    else {
+      leaderboardArea.innerHTML = '<ol style="padding-left:18px;margin:6px 0">' + top.map(e=>`<li>${escapeHtml(e.username)} — ${e.score} pts</li>`).join('') + '</ol>';
+    }
+  } catch (err) {
+    leaderboardArea.textContent = "Failed to load leaderboard.";
+  }
+}
+refreshLeaderboard.addEventListener('click', fetchLeaderboard);
+
+submitScoreBtn.addEventListener('click', async ()=>{
+  const name = (usernameInput.value || '').trim();
+  if (!name) return alert('Please enter a name for leaderboard (keep it friendly).');
+  const payload = { username: name, score: state.points };
+  try {
+    const res = await fetch('/api/score', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert('Score submitted! See Top 10 updated.');
+      fetchLeaderboard();
+    } else {
+      alert('Failed to submit score.');
+    }
+  } catch (err) {
+    alert('Failed to submit score (network).');
+  }
+});
+
+/* ---------- Utilities ---------- */
+function escapeHtml(unsafe) {
+  return unsafe.replace(/[&<"']/g, function(m) {
+    return ({'&':'&amp;','<':'&lt;','"':'&quot;',"'":'&#039;'}[m]);
+  });
+}
+
+/* ---------- Voice (speech input) ---------- */
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  voiceBtn.addEventListener('click', ()=>{
+    const r = new Rec();
+    r.lang = 'en-US';
+    r.interimResults = false;
+    r.onresult = (e) => {
+      userInput.value = e.results[0][0].transcript;
+      sendMessage();
+    };
+    r.onerror = ()=> alert('Speech recognition error or denied.');
+    r.start();
+  });
+} else {
+  voiceBtn.disabled = true;
+}
+
+/* ---------- Dark toggle ---------- */
+toggleDark.addEventListener('click', ()=>document.body.classList.toggle('dark'));
+
+/* ---------- Init UI ---------- */
+function init(){
+  renderShop();
+  renderDaily();
+  updateProfileUI();
+  fetchLeaderboard();
+  checkAchievements();
+  // preload previously persisted chats
+  if (state.chats && state.chats.length) {
+    state.chats.forEach(c => appendMessage(c.text, c.role));
+  } else {
+    appendMessage("Hey! I'm your Companion — say hi 👋", 'bot');
+  }
+}
+init();
+</script>
+</body>
+</html>
