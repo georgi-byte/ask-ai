@@ -11,7 +11,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
-// ========== CHECK API KEYS ==========
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 
@@ -21,7 +20,6 @@ else console.log("✅ OPENAI_API_KEY is set");
 if (!TAVILY_API_KEY) console.error("⚠️ TAVILY_API_KEY is NOT set (web search won't work)");
 else console.log("✅ TAVILY_API_KEY is set");
 
-// ========== HELPERS ==========
 async function readJSON(file, fallback) {
   try {
     const raw = await fs.readFile(file, 'utf8');
@@ -34,7 +32,6 @@ async function writeJSON(file, data) {
   await fs.writeFile(file, JSON.stringify(data, null, 2));
 }
 
-// ========== WEB SEARCH ==========
 async function webSearch(query) {
   try {
     const res = await fetch("https://api.tavily.com/search", {
@@ -53,14 +50,12 @@ async function webSearch(query) {
   }
 }
 
-// ========== MAIN CHAT ENDPOINT ==========
 app.post('/api/chat', async (req, res) => {
-  const { message, language, timezone } = req.body;
+  const { message, language, location } = req.body;
   try {
     const memory = await readJSON('memory.json', []);
     const recent = memory.slice(-30);
 
-    // Decay memory over time
     const today = new Date();
     const decayed = recent.map(m => {
       const daysAgo = Math.floor((today - new Date(m.timestamp)) / (1000 * 60 * 60 * 24));
@@ -74,12 +69,16 @@ app.post('/api/chat', async (req, res) => {
       return m;
     }).filter(Boolean);
 
-    // 🌍 Inject date/time + optional web search
-    const currentDate = new Date().toLocaleString('en-US', { timeZone: timezone || 'UTC' });
+    const currentDate = new Date().toLocaleString();
     let webResults = "";
 
-    if (/\b(who|what|when|where|why|how|latest|news|time|date)\b/i.test(message)) {
+    if (/\b(who|what|when|where|why|how|latest|news|time|date|weather|city|location|country)\b/i.test(message)) {
       webResults = await webSearch(message);
+    }
+
+    let locationContext = "";
+    if (location?.lat && location?.lon) {
+      locationContext = `User is approximately at latitude ${location.lat}, longitude ${location.lon}.`;
     }
 
     const languageMap = {
@@ -91,9 +90,9 @@ app.post('/api/chat', async (req, res) => {
     const messages = [
       {
         role: "system",
-        content: `You are a helpful and up-to-date AI assistant. 
+        content: `You are a helpful and up-to-date AI assistant.
 The current date/time is ${currentDate}.
-User's timezone: ${timezone || "unknown"}.
+${locationContext}
 Here are recent search results (if any):\n${webResults}
 ${languageMap[language] || languageMap.en}`
       },
@@ -137,7 +136,6 @@ ${languageMap[language] || languageMap.en}`
   }
 });
 
-// ========== START SERVER ==========
 app.listen(port, () => {
   console.log(`🚀 Server running at http://localhost:${port}`);
 });
