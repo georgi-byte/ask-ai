@@ -1,106 +1,89 @@
 require('dotenv').config();
-const express=require('express');
-const cors=require('cors');
-const fs=require('fs').promises;
-const fetch=require('node-fetch');
+const express = require('express');
+const cors = require('cors');
+const fs = require('fs').promises;
+const path = require('path');
+const fetch = require('node-fetch');
 
-const app=express();
-const port=3000;
+
+const app = express();
+const port = process.env.PORT || 3000;
+
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static('public'));
 
-const OPENAI_API_KEY=process.env.OPENAI_API_KEY;
-const TAVILY_API_KEY=process.env.TAVILY_API_KEY;
 
-if(!OPENAI_API_KEY) console.error("❌ OPENAI_API_KEY is NOT set");
-else console.log("✅ OPENAI_API_KEY is set");
-if(!TAVILY_API_KEY) console.error("⚠️ TAVILY_API_KEY is NOT set");
-else console.log("✅ TAVILY_API_KEY is set");
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+if (!OPENAI_API_KEY) console.error('❌ OPENAI_API_KEY is NOT set');
+else console.log('✅ OPENAI_API_KEY is set');
 
-async function readJSON(file,fallback){
-  try{const raw=await fs.readFile(file,'utf8');return JSON.parse(raw);}
-  catch{return fallback;}
+
+const DB_FILE = path.join(__dirname, 'db.json');
+
+
+async function readDB() {
+try {
+const raw = await fs.readFile(DB_FILE, 'utf8');
+return JSON.parse(raw);
+} catch (e) {
+return { users: {}, leaderboards: [] };
 }
-async function writeJSON(file,data){
-  await fs.writeFile(file,JSON.stringify(data,null,2));
 }
-
-async function webSearch(query){
-  try{
-    const res=await fetch("https://api.tavily.com/search",{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "Authorization":`Bearer ${TAVILY_API_KEY}`
-      },
-      body:JSON.stringify({query, max_results:3, include_answer:true})
-    });
-    const data=await res.json();
-    return data.results?.map(r=>r.content).join("\n\n") || "";
-  }catch(err){
-    console.error("Web search error:",err);
-    return "";
-  }
+async function writeDB(db) {
+await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2));
 }
 
-app.post('/api/chat',async(req,res)=>{
-  const {message,language}=req.body;
-  try{
-    const memory=await readJSON('memory.json',[]);
-    const recent=memory.slice(-30);
-    const today=new Date();
-    const decayed=recent.map(m=>{
-      const daysAgo=Math.floor((today-new Date(m.timestamp))/(1000*60*60*24));
-      if(daysAgo>=7)return null;
-      if(daysAgo>=3){return{user:`(faded memory from ${daysAgo} days ago) ${m.user}`,bot:m.bot};}
-      return m;
-    }).filter(Boolean);
 
-    const currentDate=new Date().toLocaleString();
-    let webResults="";
-    if(/\b(who|what|when|where|why|how|latest|news|time|date|weather|forecast|zipcode|postal|city|place|country)\b/i.test(message)){
-      webResults=await webSearch(message+" (worldwide)");
-    }
+// Helpers for users
+async function ensureUser(userId) {
+const db = await readDB();
+if (!db.users[userId]) {
+db.users[userId] = {
+id: userId,
+points: 0,
+level: 1,
+xp: 0,
+streak: 0,
+lastLogin: null,
+inventory: [],
+badges: [],
+chatHistory: [],
+quests: [],
+skillTree: { wit: 0, wisdom: 0 },
+createdAt: new Date().toISOString()
+};
+await writeDB(db);
+}
+return db.users[userId];
+}
 
-    const languageMap={en:"Respond in English.",bg:"Отговаряй на български.",de:"Antworte auf Deutsch."};
 
-    const messages=[
-      {role:"system",content:`You are a helpful AI assistant. 
-Always treat postal codes and cities as worldwide, not just US. 
-The current date/time is ${currentDate}.
-Here are search results (if any):\n${webResults}
-${languageMap[language]||languageMap.en}`},
-      ...decayed.flatMap(m=>[{role:"user",content:m.user},{role:"assistant",content:m.bot}]),
-      {role:"user",content:message}
-    ];
+function awardPoints(user, amount, reason = 'generic') {
+user.points += amount;
+user.xp += amount; // simple XP = points
+// Level up every 500 xp
+while (user.xp >= user.level * 500) {
+user.xp -= user.level * 500;
+user.level += 1;
+// level reward: small points and a free shop credit
+user.points += 50;
+user.badges.push(`Level ${user.level} Reached`);
+}
+}
 
-    const response=await fetch("https://api.openai.com/v1/chat/completions",{
-      method:"POST",
-      headers:{
-        "Authorization":`Bearer ${OPENAI_API_KEY}`,
-        "Content-Type":"application/json"
-      },
-      body:JSON.stringify({model:"gpt-4o",messages,max_tokens:400,temperature:0.7})
-    });
 
-    if(!response.ok){
-      const errorText=await response.text();
-      console.error("OpenAI API Error:",response.status,errorText);
-      return res.status(500).json({error:"OpenAI API call failed"});
-    }
+function checkAchievements(user) {
+const badges = [];
+if ((user.chatHistory || []).length >= 50 && !user.badges.includes('Marathon Talker')) badges.push('Marathon Talker');
+// Simplified emotion detection: check if user asked for support keywords
+const supportCount = (user.chatHistory || []).filter(m => /sad|depress|help|support|anxious/i.test(m.user)).length;
+if (supportCount >= 10 && !user.badges.includes('Empathy Expert')) badges.push('Empathy Expert');
+badges.forEach(b => { user.badges.push(b); });
+}
 
-    const data=await response.json();
-    const reply=data.choices?.[0]?.message?.content || "I'm here with you ❤️";
-    memory.push({user:message,bot:reply,timestamp:new Date().toISOString()});
-    await writeJSON('memory.json',memory);
 
-    res.json({reply});
-  }catch(error){
-    console.error("Chat error:",error);
-    res.status(500).json({reply:"Error connecting to AI."});
-  }
-});
-
-app.listen(port,()=>console.log(`🚀 Server running at http://localhost:${port}`));
+// Built-in shop items definition
+const SHOP = [
+app.listen(port, () => console.log(`🚀 Server running at http://localhost:${port}`));
