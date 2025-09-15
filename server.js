@@ -35,7 +35,7 @@ async function webSearch(query){
         "Content-Type":"application/json",
         "Authorization":`Bearer ${TAVILY_API_KEY}`
       },
-      body:JSON.stringify({query, max_results:3, include_answer:true, include_raw_content:true})
+      body:JSON.stringify({query, max_results:3, include_answer:true})
     });
     const data=await res.json();
     return data.results?.map(r=>r.content).join("\n\n") || "";
@@ -60,14 +60,15 @@ app.post('/api/chat',async(req,res)=>{
 
     const currentDate=new Date().toLocaleString();
     let webResults="";
-    if(/\b(who|what|when|where|why|how|latest|news|time|date|weather|forecast|zipcode|city|place|country)\b/i.test(message)){
-      webResults=await webSearch(message+" worldwide");
+    if(/\b(who|what|when|where|why|how|latest|news|time|date|weather|forecast|zipcode|postal|city|place|country)\b/i.test(message)){
+      webResults=await webSearch(message+" (worldwide)");
     }
 
     const languageMap={en:"Respond in English.",bg:"Отговаряй на български.",de:"Antworte auf Deutsch."};
 
     const messages=[
       {role:"system",content:`You are a helpful AI assistant. 
+Always treat postal codes and cities as worldwide, not just US. 
 The current date/time is ${currentDate}.
 Here are search results (if any):\n${webResults}
 ${languageMap[language]||languageMap.en}`},
